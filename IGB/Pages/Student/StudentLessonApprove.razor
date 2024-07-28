@@ -1,0 +1,312 @@
+﻿@page "/StudentLessonApprove/{LessonBookingId?}/{NotificationId?}"
+
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject TimeConversionService TimeConversionService
+@inject IJSRuntime JSRuntime
+
+<EditForm Model="@AllNotification" OnValidSubmit="Approve">
+    <FluentValidationValidator />
+
+
+    @if (LessonBookingId != null)
+    {
+        @if (AllNotification != null)
+        {
+            <label>Student Name:</label>
+            <InputText @bind-Value="AllNotification.LessonBookings.CourseBookings.StudentApplicationUsers.FirstName" class="form-control" disabled />
+
+            <label>Student Tag:</label>
+            <InputText @bind-Value="AllNotification.LessonBookings.CourseBookings.StudentApplicationUsers.Tag" class="form-control" disabled />
+
+            <label>Curriculum:</label>
+            <InputText @bind-Value="AllNotification.LessonBookings.CourseBookings.StudentApplicationUsers.Curriculums.Name" class="form-control" disabled />
+
+            <label>Grade:</label>
+            <InputText @bind-Value="AllNotification.LessonBookings.CourseBookings.StudentApplicationUsers.Grades.Name" class="form-control" disabled />
+
+            <label>Course:</label>
+            <InputText @bind-Value="AllNotification.LessonBookings.CourseBookings.Courses.Name" class="form-control" disabled />
+
+            <label>Tutor Name:</label>
+            <InputText @bind-Value="AllNotification.LessonBookings.CourseBookings.TutorApplicationUsers.FirstName" class="form-control" disabled />
+
+            <label>Student Remarks:</label>
+            <InputText @bind-Value="AllNotification.LessonBookings.StudentRemarks" class="form-control"  />
+
+            <label>Tutor Remarks:</label>
+            <InputText @bind-Value="AllNotification.LessonBookings.TutorRemarks" class="form-control" disabled />
+
+            <label>Admin Remarks:</label>
+            <InputText @bind-Value="AllNotification.LessonBookings.AdminRemarks" class="form-control" disabled />
+
+        }
+
+        <label>Select A Time:</label>
+        <InputSelect @bind-Value="AllNotification.LessonBookings.SelectedTime" class="form-control">
+            <option value="" disabled selected>Select An Option</option>
+            <option value="@AllNotification.LessonBookings.FirstTimeSlot">@FirstTimeSlot</option>
+            <option value="@AllNotification.LessonBookings.SecondTimeSlot">@SecondTimeSlot</option>
+            <option value="@AllNotification.LessonBookings.ThirdTimeSlot">@ThirdTimeSlot</option>
+        </InputSelect>
+
+        @if (TutorTimeError != null)
+        {
+            <p style="color: red;">@TutorTimeError</p>
+        }
+        @if (StudentTimeError != null)
+        {
+            <p style="color: red;">@StudentTimeError</p>
+        }
+
+    }
+
+
+    <button type="submit" class="btn btn-primary">Save</button>
+</EditForm>
+
+
+@code {
+    [Parameter]
+    public string LessonBookingId { get; set; }
+    [Parameter]
+    public string? NotificationId { get; set; }
+
+        private string? UserRole;
+    private string? UserId;
+
+    DateTime FirstTimeSlot;
+    DateTime SecondTimeSlot;
+    DateTime ThirdTimeSlot;
+
+    private string? TutorTimeError = null;
+    private string? StudentTimeError = null;
+
+    bool isTutorConflict;
+    bool isStudentConflict;
+
+    private AllNotification? AllNotification = new AllNotification();
+
+    private List<LessonBooking>? StudentTimeLessonBooking { get; set; } = new List<LessonBooking>();
+    private List<LessonBooking>? TutorTimeLessonBooking { get; set; } = new List<LessonBooking>();
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+
+
+        if (LessonBookingId != null)
+        {
+            AllNotification = context.AllNotifications
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers).ThenInclude(x => x.Curriculums)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers).ThenInclude(x => x.Grades)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.AdminApplicationUsers)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.Courses)
+        .Where(x => x.Id == Convert.ToInt64(NotificationId))
+        .FirstOrDefault();
+
+            FirstTimeSlot = TimeConversionService.ConvertFromUtc(AllNotification.LessonBookings.FirstTimeSlot.Value, AllNotification.LessonBookings.CourseBookings.TutorApplicationUsers.TimeZone);
+            SecondTimeSlot = TimeConversionService.ConvertFromUtc(AllNotification.LessonBookings.SecondTimeSlot.Value, AllNotification.LessonBookings.CourseBookings.TutorApplicationUsers.TimeZone);
+            ThirdTimeSlot = TimeConversionService.ConvertFromUtc(AllNotification.LessonBookings.ThirdTimeSlot.Value, AllNotification.LessonBookings.CourseBookings.TutorApplicationUsers.TimeZone);
+
+            StudentTimeLessonBooking = context.LessonBookings
+        .Where(x => x.CourseBookings.StudentApplicationUsers.Id == AllNotification.LessonBookings.CourseBookings.StudentApplicationUsers.Id && x.Status == "Booked")
+        .ToList();
+
+            TutorTimeLessonBooking = context.LessonBookings
+        .Where(x => x.CourseBookings.TutorApplicationUsers.Id == AllNotification.LessonBookings.CourseBookings.TutorApplicationUsers.Id && x.Status == "Booked")
+           .ToList();
+        }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+    protected void Approve()
+    {
+        try
+        {
+        if (isTutorConflict == false && isStudentConflict == false && AllNotification.LessonBookings.SelectedTime != null)
+        {
+        AllNotification.LessonBookings.Status = "Booked";
+        AllNotification.LessonBookings.IsSubmited = false;
+        AllNotification.LessonBookings.IsAdminApproved = false;
+        AllNotification.LessonBookings.IsAdminRejected = false;
+        AllNotification.LessonBookings.IsTutorApproved = false;
+        AllNotification.LessonBookings.IsTutorRejected = false;
+        AllNotification.LessonBookings.IsBooked = true;
+        AllNotification.LessonBookings.IsStudentApproved = true;
+        AllNotification.LessonBookings.IsStudentRejected = false;
+        AllNotification.LessonBookings.StartTime = AllNotification.LessonBookings.SelectedTime;
+        AllNotification.LessonBookings.EndTime = AllNotification.LessonBookings.StartTime.Value.AddMinutes(AllNotification.LessonBookings.Duration.Value);
+
+             if (AllNotification.LessonBookings.Duration > 0 && AllNotification.LessonBookings.Duration <= 8)
+            {
+                AllNotification.LessonBookings.EstimatedCreditCharged = 0;
+            }
+            else if (AllNotification.LessonBookings.Duration > 8 && AllNotification.LessonBookings.Duration <= 22)
+            {
+                AllNotification.LessonBookings.EstimatedCreditCharged = 0.25;
+            }
+            else if (AllNotification.LessonBookings.Duration > 22 && AllNotification.LessonBookings.Duration <= 37)
+            {
+                AllNotification.LessonBookings.EstimatedCreditCharged = 0.5;
+            }
+            else if (AllNotification.LessonBookings.Duration > 37 && AllNotification.LessonBookings.Duration <= 52)
+            {
+                AllNotification.LessonBookings.EstimatedCreditCharged = 0.75;
+            }
+            else if (AllNotification.LessonBookings.Duration > 52 && AllNotification.LessonBookings.Duration <= 60)
+            {
+                AllNotification.LessonBookings.EstimatedCreditCharged = 1;
+            }
+            else if (AllNotification.LessonBookings.Duration > 60 && AllNotification.LessonBookings.Duration <= 68)
+            {
+                AllNotification.LessonBookings.EstimatedCreditCharged = 1;
+            }
+            else if (AllNotification.LessonBookings.Duration > 68 && AllNotification.LessonBookings.Duration <= 82)
+            {
+                AllNotification.LessonBookings.EstimatedCreditCharged = 1.25;
+            }
+            else if (AllNotification.LessonBookings.Duration > 82 && AllNotification.LessonBookings.Duration <= 97)
+            {
+                AllNotification.LessonBookings.EstimatedCreditCharged = 1.5;
+            }
+            else if (AllNotification.LessonBookings.Duration > 97 && AllNotification.LessonBookings.Duration <= 112)
+            {
+                AllNotification.LessonBookings.EstimatedCreditCharged = 1.75;
+            }
+            else if (AllNotification.LessonBookings.Duration > 112 && AllNotification.LessonBookings.Duration <= 120)
+            {
+                AllNotification.LessonBookings.EstimatedCreditCharged = 2;
+            }
+            else if (AllNotification.LessonBookings.Duration > 120 && AllNotification.LessonBookings.Duration <= 128)
+            {
+                AllNotification.LessonBookings.EstimatedCreditCharged = 2.25;
+            }
+            else if (AllNotification.LessonBookings.Duration > 128 && AllNotification.LessonBookings.Duration <= 143)
+            {
+                AllNotification.LessonBookings.EstimatedCreditCharged = 2.5;
+            }
+            else if (AllNotification.LessonBookings.Duration > 143)
+            {
+                AllNotification.LessonBookings.EstimatedCreditCharged = 2.75;
+            }
+     
+
+
+
+
+        AllNotification.Time = DateTime.UtcNow;
+        AllNotification.ForAdmin = true;
+        AllNotification.ForTutor = true;
+        AllNotification.ForStudent = false;
+        AllNotification.IsReadByAdmin = false;
+        AllNotification.IsReadByTutor = false;
+        AllNotification.IsReadByStudent = true;
+        context.SaveChanges();
+
+
+        AllNotification.IsReadByTutor = true;
+        context.SaveChanges();
+
+
+        var ForTutor = new AllNotification
+            {
+                Notification = $"Your {AllNotification.LessonBookings.LessonName} Lesson Booking Request Is Approved By Student",
+                ForTutor = true,
+                ForTutorId = AllNotification.LessonBookings.CourseBookings.StudentApplicationUsers.Id
+            };
+        context.AllNotifications.Add(ForTutor);
+        context.SaveChanges();
+
+        var ForAdmin = new AllNotification
+            {
+                Notification = $"{AllNotification.LessonBookings.LessonName} Lesson Booking Request Is Approved By Student",
+                ForAdmin = true,
+            };
+        context.AllNotifications.Add(ForAdmin);
+        context.SaveChanges();
+
+        NavigationManager.NavigateTo($"/StudentBookedCourse/{AllNotification.LessonBookings.CourseBookings.StudentApplicationUsers.Id}");
+    }
+    else
+    {
+        JSRuntime.InvokeVoidAsync("alert", "First Select A Correct Time");
+    }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+}
+
+    private DateTime startTime { get; set; }
+
+    void HandleSelectedTimeChange(ChangeEventArgs e)
+    {
+        try
+        {
+        startTime = DateTime.TryParse(e.Value.ToString(), out DateTime result) ? result : startTime;
+        var endTime = startTime.AddMinutes(AllNotification.LessonBookings.Duration.Value);
+
+
+        isTutorConflict = TutorTimeLessonBooking
+       .Any(b =>
+       // Check if the new booking's start time is within the range of an existing booking
+       (startTime >= b.StartTime && startTime < b.EndTime) ||
+       // Check if the new booking's end time is within the range of an existing booking
+       (endTime > b.StartTime && endTime <= b.EndTime) ||
+       // Check if the new booking completely engulfs an existing booking
+       (startTime <= b.StartTime && endTime >= b.EndTime) ||
+       // Check if an existing booking completely engulfs the new booking
+       (startTime >= b.StartTime && endTime <= b.EndTime)
+       );
+        if (!isTutorConflict)
+        {
+            TutorTimeError = null;
+        }
+        else
+        {
+            TutorTimeError = "Your Booked Lessons Timing Conflict To This Time , Please Select Another Time";
+        }
+
+        isStudentConflict = StudentTimeLessonBooking.Any(b =>
+       // Check if the new booking's start time is within the range of an existing booking
+       (startTime >= b.StartTime && startTime < b.EndTime) ||
+       // Check if the new booking's end time is within the range of an existing booking
+       (endTime > b.StartTime && endTime <= b.EndTime) ||
+       // Check if the new booking completely engulfs an existing booking
+       (startTime <= b.StartTime && endTime >= b.EndTime) ||
+       // Check if an existing booking completely engulfs the new booking
+       (startTime >= b.StartTime && endTime <= b.EndTime)
+       );
+        if (!isStudentConflict)
+        {
+            StudentTimeError = null;
+        }
+        else
+        {
+            StudentTimeError = "Student Booked Lessons Timing Conflict To This Time , Please Select Another Time";
+        }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+}
+

@@ -1,0 +1,384 @@
+﻿@page "/AdminLessonApproveReject/{CourseBookingId?}/{NotificationId?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject UserService UserService
+@inject IJSRuntime JSRuntime
+@inject UserManager<IdentityUser> UserManager
+@inject IModalService ModalService
+@inject TimeConversionService TimeConversionService
+@inject IModalService ModalService
+
+
+@attribute [Authorize(Roles = "Admin")]
+
+<h3>Admin Lesson Approve</h3>
+@if (CourseBookingId != null)
+{
+    @if (CourseBooking.StudentApplicationUsers != null)
+    {
+        <label>Student Name:</label>
+        <input type="text" @bind="CourseBooking.StudentApplicationUsers.FirstName" class="form-control" disabled />
+
+        <label>Student Tag:</label>
+        <input type="text" @bind="CourseBooking.StudentApplicationUsers.Tag" class="form-control" disabled />
+    }
+    @if (CourseBooking.Courses != null)
+    {
+        <label>Course Name:</label>
+        <input type="text" @bind="CourseBooking.Courses.Name" class="form-control" disabled />
+    }
+    @if (CourseBooking.TutorApplicationUsers != null)
+    {
+        <label>Tutor Name:</label>
+        <input type="text" @bind="CourseBooking.TutorApplicationUsers.FirstName" class="form-control" disabled />
+    }
+
+    <div class="row">
+        <div class="col-md-12" style="text-align: end">
+            <RadzenTextBox Placeholder="Search..." @bind-Value="@searchTerm" Change="@(args => FilterChanged())" />
+        </div>
+    </div>
+
+    <RadzenDataGrid Data="@LessonBooking"
+                    Count="@count"
+                    TItem="LessonBooking"
+                    LoadData="@LoadData"
+                    ShowPagingSummary="true"
+                    AllowSorting="true"
+                    AllowPaging="true" PageSize="10"
+                    PageSizeOptions="new int[] { 10 , 25, 50 }"
+                    AllowFiltering="true"
+                    FilterMode="FilterMode.Simple"
+                    FilterDelay="2000"
+                    AllowColumnResize="true"
+                    AllowColumnPicking="true"
+                    ColumnWidth="150px">
+
+        <Columns>
+
+            <RadzenDataGridColumn TItem="LessonBooking" Title="Serial No.">
+                <Template Context="item">
+                    @((LessonBooking.IndexOf(item) + 1) + ((currentPage - 1) * pageSize))
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="LessonBooking" Property="LessonName" Title="LessonName" Sortable="true" />          
+
+            <RadzenDataGridColumn TItem="LessonBooking" Property="LessonBookingInitiatedBy" Title="Who Initiated" Sortable="true" />
+
+            <RadzenDataGridColumn TItem="LessonBooking" Property="Status" Title="Status" Sortable="true" />
+
+            <RadzenDataGridColumn TItem="LessonBooking" Property="Status" Title="Action">
+                <Template Context="data">
+                    @if (data.Status == "Pending")
+                    {
+                        <RadzenButton Text="Approve" Class="btn btn-primary" Click="@(args => Approve(data.Id))" />
+                        <RadzenButton Text="Reject" Class="btn btn-primary" Click="@(args => Reject(data.Id))" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+
+        </Columns>
+
+    </RadzenDataGrid>
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+@code {
+
+    [Parameter]
+    public string? CourseBookingId { get; set; }
+    [Parameter]
+    public string? NotificationId { get; set; }
+
+    int count;
+    string searchTerm = "";
+
+    int currentPage = 1;
+    int pageSize = 10;
+
+    private LoadDataArgs Lastargs = null;
+
+    private string? UserId;
+    private string? UserRole;
+
+    private List<LessonBooking>? LessonBooking = new List<LessonBooking>();
+    private CourseBooking? CourseBooking = new CourseBooking();
+    private ApplicationUser? ApplicationUser = new ApplicationUser();
+    private AllNotification? AllNotification = new AllNotification();
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        // UserId =  UserService.GetLoggedInUserId();
+        // UserRole =  UserService.GetLoggedInUserRole();
+
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+
+        ApplicationUser = context.ApplicationUsers.Find(UserId);
+
+        Load();
+    }
+
+    private void Load()
+    {
+        CourseBooking = context.CourseBookings
+       .Include(x => x.Courses)
+       .Include(x => x.StudentApplicationUsers)
+       .Include(x => x.AdminApplicationUsers)
+       .Include(x => x.TutorApplicationUsers)
+       .Where(x => x.Id == Convert.ToInt64(CourseBookingId)).FirstOrDefault();
+
+        count = context.LessonBookings.Count();
+
+        LessonBooking = context.LessonBookings
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.Courses)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.StudentApplicationUsers)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.AdminApplicationUsers)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.TutorApplicationUsers)
+        .Where(x => x.CourseBookingId == Convert.ToInt64(CourseBookingId))
+        .OrderByDescending(x => x.IsSubmited)
+        .Skip(0).Take(10).ToList();
+
+
+        AllNotification = context.AllNotifications
+           .Include(x => x.CourseBookings).ThenInclude(x => x.Courses)
+    .Where(x => x.Id == Convert.ToInt64(NotificationId)).FirstOrDefault();
+    }
+
+
+    void LoadData(LoadDataArgs args)
+    {
+             Lastargs = args;
+
+        var query = context.LessonBookings
+           .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.Courses)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.StudentApplicationUsers)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.AdminApplicationUsers)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.TutorApplicationUsers)
+        .Where(x => x.CourseBookingId == Convert.ToInt64(CourseBookingId))
+                .OrderByDescending(x => x.IsSubmited)
+        .AsQueryable();
+
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+
+            query = query.Where(p => p.AdminRemarks.Contains(searchTerm));
+        }
+
+        if (!string.IsNullOrEmpty(args.Filter))
+        {
+
+            query = query.Where(args.Filter);
+        }
+
+        if (!string.IsNullOrEmpty(args.OrderBy))
+        {
+            query = query.OrderBy(args.OrderBy);
+        }
+
+        count = query.Count();
+
+        int skip = args.Skip ?? 0;
+        int top = args.Top ?? 10;
+
+                  currentPage = (skip / top) + 1;
+        pageSize = top;
+
+        LessonBooking = query.Skip(skip).Take(top).ToList();
+    }
+
+
+    void FilterChanged()
+    {
+        LoadData(new LoadDataArgs());
+    }
+
+    private void Approve(long? LessonId)
+    {
+        if (LessonId != null)
+        {
+            try
+            {
+                var data = context.LessonBookings.Where(x => x.Id == LessonId).FirstOrDefault();
+
+                data.Status = "Approved By Admin";
+                data.IsSubmited = false;
+                data.IsAdminApproved = true;
+                data.IsAdminRejected = false;
+                data.IsTutorApproved = false;
+                data.IsTutorRejected = false;
+                data.IsStudentApproved = false;
+                data.IsStudentRejected = false;
+                data.IsBooked = false;
+
+
+                AllNotification.IsReadByAdmin = true;
+                context.SaveChanges();
+
+                if (data.LessonBookingInitiatedBy == "Student" || data.LessonBookingInitiatedBy == "Admin")
+                {
+
+                    var ForStudent = new AllNotification
+                        {
+                            Notification = $"Your {data.LessonName} Lesson Booking Request Is Approved By Admin",
+                            ForStudent = true,
+                            ForStudentId = CourseBooking.StudentApplicationUsers.Id
+                        };
+                    context.AllNotifications.Add(ForStudent);
+                    context.SaveChanges();
+
+                    var ForTutor = new AllNotification
+                        {
+                            LessonBookingId = LessonId,
+                            Notification = $"{data.LessonName} Lesson Booking Request Need To Be Approved",
+                            ForTutor = true,
+                            ForTutorId = CourseBooking.TutorApplicationUsers.Id
+                        };
+                    context.AllNotifications.Add(ForTutor);
+                    context.SaveChanges();
+                    if (Lastargs != null)
+                    {
+                        LoadData(Lastargs);
+                    }
+                    else
+                    {
+                        Load();
+                    }
+
+                }
+                else if (data.LessonBookingInitiatedBy == "Tutor")
+                {
+                    var ForTutor = new AllNotification
+                        {
+                            Notification = $"Your {data.LessonName} Lesson Booking Request Is Approved By Admin",
+                            ForTutor = true,
+                            ForTutorId = CourseBooking.TutorApplicationUsers.Id
+                        };
+                    context.AllNotifications.Add(ForTutor);
+                    context.SaveChanges();
+
+                    var ForStudent = new AllNotification
+                        {
+                            LessonBookingId = LessonId,
+                            Notification = $"{data.LessonName} Lesson Booking Request Need To Be Approved",
+                            ForStudent = true,
+                            ForStudentId = CourseBooking.StudentApplicationUsers.Id
+                        };
+                    context.AllNotifications.Add(ForStudent);
+                    context.SaveChanges();
+                    if (Lastargs != null)
+                    {
+                        LoadData(Lastargs);
+                    }
+                    else
+                    {
+                        Load();
+                    }
+                }
+           
+            }
+            catch (Exception ex)
+            {
+                // Handle exception, e.g., show error message to the user
+                Console.WriteLine($"Error deleting main section: {ex.Message}");
+            }
+        }        
+    }
+
+    private void Reject(long? LessonId)
+    {
+        if (LessonId != null)
+        {
+            try
+            {
+                var data = context.LessonBookings.Where(x => x.Id == LessonId).FirstOrDefault();
+
+                data.Status = "Rejected By Admin";
+                data.IsSubmited = false;
+                data.IsAdminApproved = false;
+                data.IsAdminRejected = true;
+                data.IsTutorApproved = false;
+                data.IsTutorRejected = false;
+                data.IsStudentApproved = false;
+                data.IsStudentRejected = false;
+                data.IsBooked = false;
+
+
+                AllNotification.IsReadByAdmin = true;
+                context.SaveChanges();
+
+                if (data.LessonBookingInitiatedBy == "Student" || data.LessonBookingInitiatedBy == "Admin")
+                {
+
+                    var ForStudent = new AllNotification
+                        {
+                            Notification = $"Your {data.LessonName} Lesson Booking Request Is Rejected By Admin",
+                            ForStudent = true,
+                            ForStudentId = CourseBooking.StudentApplicationUsers.Id
+                        };
+                    context.AllNotifications.Add(ForStudent);
+                    context.SaveChanges();
+
+                    if (Lastargs != null)
+                    {
+                        LoadData(Lastargs);
+                    }
+                    else
+                    {
+                        Load();
+                    }
+                }
+                else if (data.LessonBookingInitiatedBy == "Tutor")
+                {
+                    var ForTutor = new AllNotification
+                        {
+                            Notification = $"Your {data.LessonName} Lesson Booking Request Is Rejected By Admin",
+                            ForTutor = true,
+                            ForTutorId = CourseBooking.TutorApplicationUsers.Id
+                        };
+                    context.AllNotifications.Add(ForTutor);
+                    context.SaveChanges();   
+                    
+                    if (Lastargs != null)
+                    {
+                        LoadData(Lastargs);
+                    }
+                    else
+                    {
+                        Load();
+                    }
+                }
+               
+            }
+            catch (Exception ex)
+            {
+                // Handle exception, e.g., show error message to the user
+                Console.WriteLine($"Error deleting main section: {ex.Message}");
+            }
+        }
+    }
+
+
+}

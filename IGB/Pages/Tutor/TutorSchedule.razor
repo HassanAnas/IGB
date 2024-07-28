@@ -1,0 +1,1053 @@
+﻿@page "/TutorSchedule/{TutorId?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject UserService UserService
+@inject IJSRuntime JSRuntime
+@inject UserManager<IdentityUser> UserManager
+@inject Blazorise.IModalService ModalService
+@inject TimeConversionService TimeConversionService
+@implements IDisposable
+
+
+@attribute [Authorize(Roles = "Tutor")]
+
+<h3>My Schedule</h3>
+
+   @if (ApplicationUser != null)
+{
+    <label>Tutor Name:</label>
+    <input type="text" @bind="ApplicationUser.FirstName" class="form-control" disabled />
+
+    <label>Tutor Tag:</label>
+    <input type="text" @bind="ApplicationUser.Tag" class="form-control" disabled />
+}
+
+@if (lessonBooking != null)
+{
+
+    <div style="display: flex; flex-direction: column; align-items: center; background-color: #e0f7fa; padding: 20px; border-radius: 10px;">
+
+        <div style="font-size: 20px; margin-bottom: 10px;">Your Next Class will be in</div>
+        @if (IsRunning)
+        {
+            <div style="font-size: 18px; margin-bottom: 10px;">
+                @if (remainingTime.TotalSeconds > 0)
+                {
+                    <div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Days</th>
+                                    <th>Hours</th>
+                                    <th>Minutes</th>
+                                    <th>Seconds</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>@remainingTime.Days</td>
+                                    <td>@remainingTime.Hours</td>
+                                    <td>@remainingTime.Minutes</td>
+                                    <td>@remainingTime.Seconds</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        }
+
+
+
+        <div style="display: flex; flex-direction: row; align-items: center;">
+            <div style="display: flex; flex-direction: column; align-items: center; margin-right: 10px;">
+                <div style="font-size: 30px; background-color: white; padding: 10px; border-radius: 5px;">
+                    <input type="text" @bind="lessonBooking.CourseBookings.StudentApplicationUsers.FirstName" disabled style="border: none; text-align: center;" />
+                </div>
+                <div>Student Name:</div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; align-items: center; margin-right: 10px;">
+                <div style="font-size: 30px; background-color: white; padding: 10px; border-radius: 5px;">
+                    <input type="text" @bind="lessonBooking.CourseBookings.Courses.Name" disabled style="border: none; text-align: center;" />
+                </div>
+                <div>Course Name:</div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; margin-right: 10px;">
+                <div style="font-size: 30px; background-color: white; padding: 10px; border-radius: 5px;">
+                    <input type="text" @bind="lessonBooking.LessonName" disabled style="border: none; text-align: center;" />
+                </div>
+                <div>Lesson Name:</div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; align-items: center; margin-right: 10px;">
+                <div style="font-size: 30px; background-color: white; padding: 10px; border-radius: 5px;">
+                    @if (lessonBooking.StartTime != null)
+                    {
+                        DateTime StartTime = TimeConversionService.ConvertFromUtc(lessonBooking.StartTime.Value, ApplicationUser.TimeZone);
+                        <input type="text" @bind="StartTime" class="form-control" disabled style="border: none; text-align: center;" />
+                    }
+                </div>
+                <div>Starting Time:</div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; align-items: center; margin-right: 10px;">
+                <div style="font-size: 30px; background-color: white; padding: 10px; border-radius: 5px;">
+                    @if (lessonBooking.EndTime != null)
+                    {
+                        DateTime EndTime = TimeConversionService.ConvertFromUtc(lessonBooking.EndTime.Value, ApplicationUser.TimeZone);
+                        <input type="text" @bind="EndTime" class="form-control" disabled style="border: none; text-align: center;" />
+                    }
+                </div>
+                <div>Ending Time:</div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; align-items: center; margin-right: 10px;">
+                <div style="font-size: 30px; background-color: white; padding: 10px; border-radius: 5px;">
+                    <input type="text" @bind="lessonBooking.Duration" class="form-control" disabled style="border: none; text-align: center;" />
+                </div>
+                <div>Duration:</div>
+            </div>
+        </div>
+        @if (lessonBooking.TutorClassStartAccess == true)
+        {
+            <button type="button" class="btn btn-primary" style="margin-top: 20px;" @onclick="() => ClassStarted(lessonBooking.Id)">Start Class</button>
+        }
+        else
+        {
+            <Span>You Can Start The Class 15 Minutes Before The Class Starts.</Span>
+        }
+
+        @if (!string.IsNullOrEmpty(lessonBooking.ClassLink))
+        {
+            <button type="button" class="btn btn-primary" style="margin-top: 20px;" @onclick="() => ChangeClassLink(lessonBooking.Id)">Edit Class Link</button>
+        }
+        else
+        {
+            <button type="button" class="btn btn-primary" style="margin-top: 20px; background-color: red; border-color: red;" @onclick="() => ChangeClassLink(lessonBooking.Id)">Add Class Link</button>
+        }
+
+
+    </div>
+}
+
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <RadzenTextBox Placeholder="Search..." @bind-Value="@searchTerm" Change="@(args => FilterChanged())" />
+    </div>
+</div>
+
+<RadzenDataGrid Data="@LessonBooking"
+                Count="@count"
+                TItem="LessonBooking"
+                LoadData="@LoadData"
+                ShowPagingSummary="true"
+                AllowSorting="true"
+                AllowPaging="true" PageSize="10"
+                PageSizeOptions="new int[] { 10 , 25, 50 }"
+                AllowFiltering="true"
+                FilterMode="FilterMode.Simple"
+                FilterDelay="2000"
+                AllowColumnResize="true"
+                AllowColumnPicking="true"
+                ColumnWidth="150px">
+
+    <Columns>
+
+        <RadzenDataGridColumn TItem="LessonBooking" Title="Serial No.">
+            <Template Context="item">
+                @((LessonBooking.IndexOf(item) + 1) + ((currentPage - 1) * pageSize))
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="lessonBooking.CourseBookings.Courses.Name" Title="Course Name" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="LessonName" Title="LessonName" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="TopicCovered" Title="Topic Covered" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="lessonBooking.CourseBookings.StudentApplicationUsers.FirstName" Title="Student Name" Sortable="true" />
+
+        @* <RadzenDataGridColumn TItem="LessonBooking" Property="FirstTimeSlot" Title="First Time Slot" Sortable="true">
+        <Template Context="data">
+        @{
+        @if (data.FirstTimeSlot != null)
+        {
+        DateTime FirstTimeSlot = TimeConversionService.ConvertFromUtc(data.FirstTimeSlot.Value, ApplicationUser.TimeZone);
+        <Span>@FirstTimeSlot</Span>
+        }
+        }
+        </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="SecondTimeSlot" Title="Second Time Slot" Sortable="true">
+        <Template Context="data">
+        @{
+        @if (data.SecondTimeSlot != null)
+        {
+        DateTime SecondTimeSlot = TimeConversionService.ConvertFromUtc(data.SecondTimeSlot.Value, ApplicationUser.TimeZone);
+        <Span>@SecondTimeSlot</Span>
+        }
+        }
+        </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="ThirdTimeSlot" Title="Third Time Slot" Sortable="true">
+        <Template Context="data">
+        @{
+        @if (data.ThirdTimeSlot != null)
+        {
+        DateTime ThirdTimeSlot = TimeConversionService.ConvertFromUtc(data.ThirdTimeSlot.Value, ApplicationUser.TimeZone);
+        <Span>@ThirdTimeSlot</Span>
+        }
+        }
+        </Template>
+        </RadzenDataGridColumn> *@
+
+        @*  <RadzenDataGridColumn TItem="LessonBooking" Property="SelectedTime" Title="Selected Time" Sortable="true">
+        <Template Context="data">
+        @{
+        @if (data.SelectedTime != null)
+        {
+        DateTime SelectedTime = TimeConversionService.ConvertFromUtc(data.SelectedTime.Value, ApplicationUser.TimeZone);
+        <Span>@SelectedTime</Span>
+        }
+
+        }
+        </Template>
+        </RadzenDataGridColumn>
+        *@
+        <RadzenDataGridColumn TItem="LessonBooking" Property="Duration" Title="Duration" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="StartTime" Title="StartTime Time" Sortable="true">
+            <Template Context="data">
+                @{
+                    @if (data.StartTime != null)
+                    {
+                        DateTime StartTime = TimeConversionService.ConvertFromUtc(data.StartTime.Value, ApplicationUser.TimeZone);
+                        <Span>@StartTime</Span>
+                    }
+
+                }
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="EndTime" Title="EndTime Time" Sortable="true">
+            <Template Context="data">
+                @{
+                    @if (data.EndTime != null)
+                    {
+                        DateTime EndTime = TimeConversionService.ConvertFromUtc(data.EndTime.Value, ApplicationUser.TimeZone);
+                        <Span>@EndTime</Span>
+                    }
+
+                }
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="WhoInitiated" Title="Who Initiated" Sortable="true" />
+
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="StudentRemarks" Title="StudentRemarks" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="TutorRemarks" Title="TutorRemarks" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="AdminRemarks" Title="AdminRemarks" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="Status" Title="Status" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="LessonBooking" Title="Class Link">
+            <Template Context="data">
+                @if (UserRole == "Tutor")
+                {
+                    @if (!string.IsNullOrEmpty(data.ClassLink))
+                    {
+                        <button type="button" class="btn btn-primary" style="margin-top: 20px;" @onclick="() => ChangeClassLink(data.Id)">Edit Class Link</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-primary" style="margin-top: 20px; background-color: red; border-color: red;" @onclick="() => ChangeClassLink(data.Id)">Add Class Link</button>
+                    }
+                }
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="LessonBooking" Title="Action">
+            <Template Context="data">
+
+                @* <RadzenButton Text="Edit" Class="btn btn-primary" Click="@(args => Edit(data.Id))" /> *@
+            </Template>
+        </RadzenDataGridColumn>
+
+
+
+    </Columns>
+
+</RadzenDataGrid>
+
+
+<Blazorise.Modal @ref="TutorSessionStartModal" Closing="@OnModalClosing">
+    <Blazorise.ModalContent Centered>
+        <ModalHeader>
+            <ModalTitle>Tutor Session Started</ModalTitle>
+        </ModalHeader>
+        <ModalBody>
+            <div style="font-size: 18px; margin-bottom: 10px;">
+                <div>
+                    <label>Total Credits:</label>
+                    <input type="number" @bind="TotalCredit" class="form-control" disabled />
+
+                    <label>Consumed Credits:</label>
+                    <input type="number" @bind="ConsumedCredit" class="form-control" disabled />
+
+                    <label>Remaining Credits:</label>
+                    <input type="number" @bind="RemainingCredit" class="form-control" disabled />
+                </div>
+                <div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Hours</th>
+                                <th>Minutes</th>
+                                <th>Seconds</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>@ElapsedTimeInHours</td>
+                                <td>@ElapsedTimeInMinutes</td>
+                                <td>@ElapsedTimeInSeconds</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div><p>Note : If You Don't End The Class , Class Will End Automatically End After 2 hours 30 Minutes</p></div>
+
+            </div>
+        </ModalBody>
+        <ModalFooter>
+            <Blazorise.Button Color="Color.Secondary" Clicked="@ClassEnded">Class Ended</Blazorise.Button>
+        </ModalFooter>
+    </Blazorise.ModalContent>
+</Blazorise.Modal>
+
+
+
+
+
+
+
+
+
+
+
+
+
+@code {
+
+    [Parameter]
+    public string? TutorId { get; set; }
+
+    int count;
+    string searchTerm = "";
+
+    int currentPage = 1;
+    int pageSize = 10;
+
+    private string? UserId;
+    private string? UserRole;
+
+    private List<LessonBooking>? LessonBooking = new List<LessonBooking>();
+    private LessonBooking? lessonBooking = new LessonBooking();
+    private ApplicationUser? ApplicationUser = new ApplicationUser();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+
+            UserId = UserService.LoggedInUserId;
+            UserRole = UserService.LoggedInUserRole;
+
+            ApplicationUser = context.ApplicationUsers.Find(TutorId);
+
+            count = context.LessonBookings.Where(x => x.CourseBookings.TutorApplicationUsers.Id == TutorId && x.IsBooked == true).Count();
+
+            LessonBooking = context.LessonBookings
+            .Include(x => x.CourseBookings)
+            .ThenInclude(x => x.Courses)
+            .Include(x => x.CourseBookings)
+            .ThenInclude(x => x.StudentApplicationUsers)
+            .Include(x => x.CourseBookings)
+            .ThenInclude(x => x.AdminApplicationUsers)
+            .Include(x => x.CourseBookings)
+            .ThenInclude(x => x.TutorApplicationUsers)
+            .Where(x => x.CourseBookings.TutorApplicationUsers.Id == TutorId && x.IsBooked == true)
+            .OrderBy(n => n.StartTime)
+            .Skip(0).Take(10).ToList();
+
+            lessonBooking = context.LessonBookings
+           .Include(x => x.CourseBookings).ThenInclude(x => x.Courses)
+           .Include(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers)
+           .Include(x => x.CourseBookings).ThenInclude(x => x.AdminApplicationUsers)
+           .Include(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+           .Where(x => x.CourseBookings.TutorApplicationUsers.Id == TutorId && x.IsBooked == true)
+           .OrderBy(n => n.StartTime)
+           .FirstOrDefault();
+
+            lessonBooking = LessonBooking.FirstOrDefault();
+            if (lessonBooking != null)
+            {
+                if (lessonBooking.StartTime != null)
+                {
+                    StartCountDown();
+                }
+            }
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+
+
+    void LoadData(LoadDataArgs args)
+    {
+        try
+        {
+
+            var query = context.LessonBookings
+               .Include(x => x.CourseBookings)
+            .ThenInclude(x => x.Courses)
+            .Include(x => x.CourseBookings)
+            .ThenInclude(x => x.StudentApplicationUsers)
+            .Include(x => x.CourseBookings)
+            .ThenInclude(x => x.AdminApplicationUsers)
+            .Include(x => x.CourseBookings)
+            .ThenInclude(x => x.TutorApplicationUsers)
+        .Where(x => x.CourseBookings.TutorApplicationUsers.Id == TutorId && x.IsBooked == true)
+           .OrderBy(n => n.StartTime)
+            .AsQueryable();
+
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+
+                query = query.Where(p => p.AdminRemarks.Contains(searchTerm));
+            }
+
+            if (!string.IsNullOrEmpty(args.Filter))
+            {
+
+                query = query.Where(args.Filter);
+            }
+
+            if (!string.IsNullOrEmpty(args.OrderBy))
+            {
+                query = query.OrderBy(args.OrderBy);
+            }
+
+            count = query.Count();
+
+            int skip = args.Skip ?? 0;
+            int top = args.Top ?? 10;
+
+              currentPage = (skip / top) + 1;
+        pageSize = top;
+
+            LessonBooking = query.Skip(skip).Take(top).ToList();
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+
+    void FilterChanged()
+    {
+        try
+        {
+            LoadData(new LoadDataArgs());
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+    private void ChangeClassLink(long id)
+    {
+        try
+        {
+            if (id != null)
+            {
+                ModalService.Show<ChangeClassLinkModal>(parameters => parameters.Add(x => x.LessonBookingId, id), new ModalInstanceOptions()
+                    {
+                        UseModalStructure = true,
+                    });
+
+            }
+            else
+            {
+
+            }
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    // private void Edit(long id)
+    // {
+    //     NavigationManager.NavigateTo($"/CurriculumCreate/{id}");
+    // }
+
+    // private void Delete(LessonBooking data)
+    // {
+    //     try
+    //     {
+    //         context.LessonBookings.Remove(data);
+    //         context.SaveChanges();
+
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         // Handle exception, e.g., show error message to the user
+    //         Console.WriteLine($"Error deleting main section: {ex.Message}");
+    //     }
+    // }
+
+
+    //------------CountDown Clock----------------
+
+    private bool IsRunning { get; set; }
+    private TimeSpan remainingTime;
+    private System.Timers.Timer timer;
+
+    private void StartCountDown()
+    {
+        try
+        {
+
+            if (lessonBooking.StartTime != null)
+            {
+                DateTime CurrentTime = DateTime.UtcNow;
+                long? Minutes = (int?)(lessonBooking.StartTime - CurrentTime)?.TotalMinutes;
+                if (Minutes > 0)
+                {
+                    remainingTime = TimeSpan.FromMinutes(Minutes.Value);
+                    IsRunning = true;
+                    timer = new System.Timers.Timer(1000); // Update every second
+                    timer.Elapsed += UpdateCountDown;
+                    timer.Start();
+                }
+
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void UpdateCountDown(object sender, System.Timers.ElapsedEventArgs e)
+    {
+        try
+        {
+
+
+            if (remainingTime.TotalSeconds > 0)
+            {
+                remainingTime = remainingTime.Add(TimeSpan.FromSeconds(-1));
+                InvokeAsync(StateHasChanged);
+            }
+            else
+            {
+                IsRunning = false;
+                timer.Stop();
+                timer.Dispose();
+            }
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    //-------------------Modal--------------------
+
+    public long? ModalId { get; set; }
+    private LessonBooking? LessonBookingForStartClass = new LessonBooking();
+    private LessonBooking? LessonBookingForEndClass = new LessonBooking();
+
+    private Blazorise.Modal TutorSessionStartModal;
+    private bool cancelClose;
+
+    private System.Timers.Timer _timer;
+    private DateTime _startTime;
+    private int _elapsedTimeInMinutes;
+    private int _elapsedTimeInSeconds;
+    private int _elapsedTimeInHours;
+
+    private TimeSpan? _totalElapsedTime;
+
+    private double? TotalCredit = 0;
+    private double? ConsumedCredit = 0;
+    private double? RemainingCredit = 0;
+
+    private System.Timers.Timer ClassEndTimer;
+
+    private void ClassStarted(long LessonId)
+    {
+        try
+        {
+
+
+            if (LessonId != null)
+            {
+
+                ModalId = LessonId;
+
+                LessonBookingForStartClass = context.LessonBookings
+               .Include(x => x.CourseBookings).ThenInclude(x => x.Courses)
+               .Include(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers)
+               .Include(x => x.CourseBookings).ThenInclude(x => x.AdminApplicationUsers)
+               .Include(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+               .Where(x => x.Id == ModalId)
+               .OrderBy(n => n.StartTime)
+               .FirstOrDefault();
+
+                if (!string.IsNullOrEmpty(LessonBookingForStartClass.ClassLink))
+                {
+
+                    var ForTotalCredit = context.ApplicationUsers
+               .Include(x => x.StudentCredits)
+               .Where(x => x.Id == LessonBookingForStartClass.CourseBookings.StudentApplicationUsers.Id).FirstOrDefault();
+
+                    foreach (var item in ForTotalCredit.StudentCredits)
+                    {
+                        TotalCredit += item.Credit;
+                    }
+
+                    var ForConsumedCredit = context.CourseBookings
+                .Include(x => x.Courses)
+             .Include(x => x.StudentApplicationUsers)
+             .Include(x => x.AdminApplicationUsers)
+             .Include(x => x.TutorApplicationUsers)
+             .Include(x => x.LessonBookings)
+            .Where(x => x.StudentApplicationUsers.Id == LessonBookingForStartClass.CourseBookings.StudentApplicationUsers.Id)
+            .ToList();
+
+                    foreach (var item in ForConsumedCredit)
+                    {
+                        foreach (var lesson in item.LessonBookings)
+                        {
+                            ConsumedCredit += lesson.CreditCharged;
+                        }
+                    }
+
+                    RemainingCredit = TotalCredit - ConsumedCredit;
+
+
+                    if (LessonBookingForStartClass.IsSessionInitiated == false)
+                    {
+                        LessonBookingForStartClass.IsSessionInitiated = true;
+                        LessonBookingForStartClass.IsTutorPresent = true;
+                        LessonBookingForStartClass.TutorComingTime = DateTime.UtcNow;
+                        LessonBookingForStartClass.SessionInitiatedBy = UserRole;
+                        LessonBookingForStartClass.Status = "Ongoing";
+
+                        context.SaveChanges();
+                    }
+                    else
+                    {
+                        LessonBookingForStartClass.IsSessionInitiated = true;
+                        LessonBookingForStartClass.IsTutorPresent = true;
+                        LessonBookingForStartClass.TutorComingTime = DateTime.UtcNow;
+                        context.SaveChanges();
+                    }
+
+                    _timer = new System.Timers.Timer(1000); // 1 second interval
+                    _timer.Elapsed += OnTimerElapsed;
+                    StartTimerCounter();
+                    TutorSessionStartModal.Show();
+
+
+                    ClassEndTimer = new System.Timers.Timer(9000000); // 150 minutes in milliseconds
+                    ClassEndTimer.Elapsed += async (sender, e) => await AutoClassEnded();
+                    ClassEndTimer.AutoReset = false; // Ensure the timer runs only once
+                    ClassEndTimer.Start();
+                }
+                else
+                {
+                    JSRuntime.InvokeVoidAsync("alert", "Upload Class Link First");
+                }
+            }
+            else
+            {
+                ModalId = null;
+            }
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private Task ClassEnded()
+    {
+        try
+        {
+
+            ClassEndTimer.Stop();
+            cancelClose = false;
+            StopTimer();
+            _totalElapsedTime = DateTime.UtcNow - _startTime;
+
+            LessonBookingForEndClass = context.LessonBookings
+               .Include(x => x.CourseBookings).ThenInclude(x => x.Courses)
+               .Include(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers)
+               .Include(x => x.CourseBookings).ThenInclude(x => x.AdminApplicationUsers)
+               .Include(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+               .Where(x => x.Id == ModalId)
+               .OrderBy(n => n.StartTime)
+               .FirstOrDefault();
+
+            if (LessonBookingForEndClass.IsSessionEnded == false && LessonBookingForEndClass.IsTutorPresent == true && LessonBookingForEndClass.IsStudentPresent == true)
+            {
+                LessonBookingForEndClass.IsSessionEnded = true;
+                LessonBookingForEndClass.SessionEndeddBy = UserRole;
+                LessonBookingForEndClass.IsDone = true;
+                LessonBookingForEndClass.IsBooked = false;
+                LessonBookingForEndClass.Status = "Completed";
+                LessonBookingForStartClass.TutorCheckoutTime = DateTime.UtcNow;
+                LessonBookingForEndClass.SessionTutorTime = _totalElapsedTime;
+
+                // Tutor Joins First
+
+                if (LessonBookingForEndClass.TutorComingTime < LessonBookingForEndClass.StudentComingTime)
+                {
+                    // Student Joins Late
+
+                    if (LessonBookingForEndClass.StudentComingTime > LessonBookingForEndClass.StartTime.Value.AddMinutes(5))
+                    {
+                        LessonBookingForEndClass.SessionTime = DateTime.UtcNow - LessonBookingForEndClass.StartTime;
+                    }
+
+                    // Student Joins On Time
+
+                    else if (LessonBookingForEndClass.StudentComingTime <= LessonBookingForEndClass.StartTime.Value.AddMinutes(5))
+                    {
+                        LessonBookingForEndClass.SessionTime = DateTime.UtcNow - LessonBookingForEndClass.StudentComingTime;
+                    }
+                }
+
+                // Student Joins First
+
+                else if (LessonBookingForEndClass.TutorComingTime > LessonBookingForEndClass.StudentComingTime)
+                {
+                    LessonBookingForEndClass.SessionTime = DateTime.UtcNow - LessonBookingForEndClass.TutorComingTime;
+                }
+
+
+
+                if (LessonBookingForEndClass.SessionTime > TimeSpan.FromMinutes(0) && LessonBookingForEndClass.SessionTime <= TimeSpan.FromMinutes(8))
+                {
+                    LessonBookingForEndClass.CreditCharged = 0;
+                }
+                else if (LessonBookingForEndClass.SessionTime > TimeSpan.FromMinutes(8) && LessonBookingForEndClass.SessionTime <= TimeSpan.FromMinutes(22))
+                {
+                    LessonBookingForEndClass.CreditCharged = 0.25;
+                }
+                else if (LessonBookingForEndClass.SessionTime > TimeSpan.FromMinutes(22) && LessonBookingForEndClass.SessionTime <= TimeSpan.FromMinutes(37))
+                {
+                    LessonBookingForEndClass.CreditCharged = 0.5;
+                }
+                else if (LessonBookingForEndClass.SessionTime > TimeSpan.FromMinutes(37) && LessonBookingForEndClass.SessionTime <= TimeSpan.FromMinutes(52))
+                {
+                    LessonBookingForEndClass.CreditCharged = 0.75;
+                }
+                else if (LessonBookingForEndClass.SessionTime > TimeSpan.FromMinutes(52) && LessonBookingForEndClass.SessionTime <= TimeSpan.FromMinutes(60))
+                {
+                    LessonBookingForEndClass.CreditCharged = 1;
+                }
+                else if (LessonBookingForEndClass.SessionTime > TimeSpan.FromMinutes(60) && LessonBookingForEndClass.SessionTime <= TimeSpan.FromMinutes(68))
+                {
+                    LessonBookingForEndClass.CreditCharged = 1;
+                }
+                else if (LessonBookingForEndClass.SessionTime > TimeSpan.FromMinutes(68) && LessonBookingForEndClass.SessionTime <= TimeSpan.FromMinutes(82))
+                {
+                    LessonBookingForEndClass.CreditCharged = 1.25;
+                }
+                else if (LessonBookingForEndClass.SessionTime > TimeSpan.FromMinutes(82) && LessonBookingForEndClass.SessionTime <= TimeSpan.FromMinutes(97))
+                {
+                    LessonBookingForEndClass.CreditCharged = 1.5;
+                }
+                else if (LessonBookingForEndClass.SessionTime > TimeSpan.FromMinutes(97) && LessonBookingForEndClass.SessionTime <= TimeSpan.FromMinutes(112))
+                {
+                    LessonBookingForEndClass.CreditCharged = 1.75;
+                }
+                else if (LessonBookingForEndClass.SessionTime > TimeSpan.FromMinutes(112) && LessonBookingForEndClass.SessionTime <= TimeSpan.FromMinutes(120))
+                {
+                    LessonBookingForEndClass.CreditCharged = 2;
+                }
+                else if (LessonBookingForEndClass.SessionTime > TimeSpan.FromMinutes(120) && LessonBookingForEndClass.SessionTime <= TimeSpan.FromMinutes(128))
+                {
+                    LessonBookingForEndClass.CreditCharged = 2.25;
+                }
+                else if (LessonBookingForEndClass.SessionTime > TimeSpan.FromMinutes(128) && LessonBookingForEndClass.SessionTime <= TimeSpan.FromMinutes(143))
+                {
+                    LessonBookingForEndClass.CreditCharged = 2.5;
+                }
+                else if (LessonBookingForEndClass.SessionTime > TimeSpan.FromMinutes(143))
+                {
+                    LessonBookingForEndClass.CreditCharged = 2.75;
+                }
+
+                context.SaveChanges();
+            }
+            else
+            {
+                LessonBookingForStartClass.TutorCheckoutTime = DateTime.UtcNow;
+                LessonBookingForEndClass.SessionTutorTime = _totalElapsedTime;
+            }
+
+
+            NavigationManager.NavigateTo($"/TutorLessonFeedback/{LessonBookingForEndClass.Id}");
+            ModalId = null;
+            LessonBookingForStartClass = new LessonBooking();
+            LessonBookingForEndClass = new LessonBooking();
+            return TutorSessionStartModal.Hide();
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private Task AutoClassEnded()
+    {
+        try
+        {
+
+            ClassEndTimer.Stop();
+            cancelClose = false;
+            StopTimer();
+            _totalElapsedTime = DateTime.UtcNow - _startTime;
+
+            LessonBookingForEndClass = context.LessonBookings
+          .Include(x => x.CourseBookings).ThenInclude(x => x.Courses)
+          .Include(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers)
+          .Include(x => x.CourseBookings).ThenInclude(x => x.AdminApplicationUsers)
+          .Include(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+          .Where(x => x.Id == ModalId)
+          .OrderBy(n => n.StartTime)
+          .FirstOrDefault();
+
+            if (LessonBookingForEndClass.IsSessionEnded == false && LessonBookingForEndClass.IsTutorPresent == true && LessonBookingForEndClass.IsStudentPresent == true)
+            {
+                LessonBookingForEndClass.IsSessionEnded = true;
+                LessonBookingForEndClass.SessionEndeddBy = UserRole;
+                LessonBookingForEndClass.IsDone = true;
+                LessonBookingForEndClass.IsBooked = false;
+                LessonBookingForEndClass.Status = "Completed";
+
+                LessonBookingForEndClass.SessionStudentTime = TimeSpan.FromMinutes(90);
+                LessonBookingForEndClass.SessionTutorTime = TimeSpan.FromMinutes(90);
+                LessonBookingForEndClass.SessionTime = TimeSpan.FromMinutes(90);
+                LessonBookingForEndClass.TutorCheckoutTime = DateTime.UtcNow;
+
+
+                LessonBookingForEndClass.CreditCharged = 1.5;
+
+
+                context.SaveChanges();
+            }
+            else
+            {
+                LessonBookingForEndClass.TutorCheckoutTime = DateTime.UtcNow;
+                LessonBookingForEndClass.SessionTutorTime = _totalElapsedTime;
+            }
+
+            ModalId = null;
+            LessonBookingForStartClass = new LessonBooking();
+            LessonBookingForEndClass = new LessonBooking();
+            return TutorSessionStartModal.Hide();
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private Task OnModalClosing(ModalClosingEventArgs e)
+    {
+        try
+        {
+            e.Cancel = cancelClose
+                || e.CloseReason != CloseReason.UserClosing;
+
+            return Task.CompletedTask;
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+
+
+    private void StartTimerCounter()
+    {
+        try
+        {
+            _startTime = DateTime.UtcNow;
+            _timer.Start();
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+    private void StopTimer()
+    {
+        try
+        {
+            _timer.Stop();
+            _timer.Elapsed -= OnTimerElapsed;
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+    private void OnTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
+    {
+        try
+        {
+            var elapsed = DateTime.UtcNow - _startTime;
+            ElapsedTimeInHours = elapsed.Hours;
+            ElapsedTimeInMinutes = elapsed.Minutes;
+            ElapsedTimeInSeconds = elapsed.Seconds;
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+    public int ElapsedTimeInMinutes
+    {
+
+        get => _elapsedTimeInMinutes;
+        private set
+        {
+            if (_elapsedTimeInMinutes != value)
+            {
+                _elapsedTimeInMinutes = value;
+                InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    public int ElapsedTimeInSeconds
+    {
+
+        get => _elapsedTimeInSeconds;
+        private set
+        {
+            try
+            {
+                if (_elapsedTimeInSeconds != value)
+                {
+                    _elapsedTimeInSeconds = value;
+                    InvokeAsync(StateHasChanged);
+                }
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+
+        }
+    }
+
+    public int ElapsedTimeInHours
+    {
+        get => _elapsedTimeInHours;
+        private set
+        {
+            try
+            {
+                if (_elapsedTimeInHours != value)
+                {
+                    _elapsedTimeInHours = value;
+                    InvokeAsync(StateHasChanged);
+                }
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+
+        }
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+
+            if (timer != null)
+            {
+                timer.Stop();
+                timer.Dispose();
+                timer = null;
+            }
+            if (_timer != null)
+            {
+                _timer.Stop();
+                _timer.Dispose();
+                _timer = null;
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+}
+

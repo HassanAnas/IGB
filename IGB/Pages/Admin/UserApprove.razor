@@ -1,0 +1,61 @@
+﻿@page "/UserApprove/{UserId?}/{NotificationId?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+
+@if (ApplicationUser.EmailConfirmed == true)
+{
+    <h1>User Account Is Approved</h1>
+}
+else
+{
+    <h1>User Account Is Not Approved</h1>
+}
+
+@code {
+    [Parameter]
+    public string UserId { get; set; }
+         [Parameter]
+    public string? NotificationId { get; set; }
+
+    private ApplicationUser? ApplicationUser = new ApplicationUser();
+
+    private AllNotification? AllNotification = new AllNotification();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ApplicationUser = context.ApplicationUsers.Find(UserId);
+        ApplicationUser.EmailConfirmed=true;
+        ApplicationUser.IsActive=true;
+
+        AllNotification = context.AllNotifications.Where(x => x.Id == Convert.ToInt64(NotificationId)).FirstOrDefault();
+        AllNotification.IsReadByAdmin = true;
+        context.SaveChanges();
+
+        if (AllNotification.NewUserRole == "Tutor")
+        {
+            var obj = new AllNotification
+                {
+                    Notification = "Your Account Registration Request Is Approved",
+                    NewUserId = AllNotification.NewUserId,
+                    ForTutor = true,
+                    ForTutorId = AllNotification.NewUserId
+                };
+            context.AllNotifications.Add(obj);
+            context.SaveChanges();
+        }
+        else if (AllNotification.NewUserRole == "Student")
+        {
+            var obj = new AllNotification
+                {
+                    Notification = "Your Account Registration Request Is Approved",
+                    NewUserId = AllNotification.NewUserId,
+                    ForStudent = true,
+                    ForStudentId = AllNotification.NewUserId
+                };
+            context.AllNotifications.Add(obj);
+            context.SaveChanges();
+        }
+    }
+}
+ 

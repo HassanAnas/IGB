@@ -1,0 +1,299 @@
+﻿@page "/CourseBookingCreate/{StudentId?}/{CourseBookingId?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject UserService UserService
+@inject IJSRuntime JSRuntime
+@inject UserManager<IdentityUser> UserManager
+@inject IModalService ModalService
+@attribute [Authorize(Roles = "Student,Admin")]
+
+@if (StudentId != null && CourseBookingId == null)
+{
+    <h3>Course Booking Create</h3>
+    <EditForm Model="@CourseBooking" OnValidSubmit="CourseCreate" OnInvalidSubmit="HandleInvalidSubmit">
+        <FluentValidationValidator />
+
+        <div class="form-group">
+            <label>Student Name:</label>
+            <InputText @bind-Value="ApplicationUserCourse.FirstName" class="form-control" disabled />
+
+            <label>Student Tag:</label>
+            <InputText @bind-Value="ApplicationUserCourse.Tag" class="form-control" disabled />
+
+            <label>Student Curriculum:</label>
+            <InputText @bind-Value="ApplicationUserCourse.Curriculums.Name" class="form-control" disabled />
+
+            <label>Student Grade:</label>
+            <InputText @bind-Value="ApplicationUserCourse.Grades.Name" class="form-control" disabled />
+
+            <label>Select Course:</label>
+            <RadzenDropDown class="form-control" @bind-Value=@CourseBooking.CourseId Data=@GradeCourse TextProperty="Courses.Name" ValueProperty="Courses.Id"
+                            FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select A Course" />
+            <ValidationMessage For="@(() => CourseBooking.CourseId)" />
+
+                
+            @if(UserRole == "Admin")
+            {
+                <label>Admin Remarks:</label>
+                <InputText @bind-Value="CourseBooking.AdminRemarks" class="form-control" />
+            }
+            else
+            {
+                <label>Student Remarks:</label>
+                <InputText @bind-Value="CourseBooking.StudentRemarks" class="form-control" />
+            }
+
+
+
+
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+
+}
+
+@if (StudentId != null && CourseBookingId != null)
+{
+    <h3>Course Booking Edit</h3>
+    <EditForm Model="@CourseBooking" OnValidSubmit="CourseEdit" OnInvalidSubmit="HandleInvalidSubmit">
+        <FluentValidationValidator />
+
+        <div class="form-group">
+            <label>Student Name:</label>
+            <InputText @bind-Value="ApplicationUserCourse.FirstName" class="form-control" disabled />
+
+            <label>Student Tag:</label>
+            <InputText @bind-Value="ApplicationUserCourse.Tag" class="form-control" disabled />
+
+            <label>Student Curriculum:</label>
+            <InputText @bind-Value="ApplicationUserCourse.Curriculums.Name" class="form-control" disabled />
+
+            <label>Student Grade:</label>
+            <InputText @bind-Value="ApplicationUserCourse.Grades.Name" class="form-control" disabled />
+
+            <label>Select Course:</label>
+            <RadzenDropDown class="form-control" @bind-Value=@CourseBooking.CourseId Data=@GradeCourse TextProperty="Courses.Name" ValueProperty="Courses.Id"
+                            FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select A Course" />
+            <ValidationMessage For="@(() => CourseBooking.CourseId)" />
+
+            @if (UserRole == "Admin")
+            {
+                <label>Admin Remarks:</label>
+                <InputText @bind-Value="CourseBooking.AdminRemarks" class="form-control" />
+            }
+            else
+            {
+                <label>Student Remarks:</label>
+                <InputText @bind-Value="CourseBooking.StudentRemarks" class="form-control" />
+            }
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+}
+
+
+
+
+
+
+
+@code {
+    [Parameter]
+    public string? StudentId { get; set; }
+    [Parameter]
+    public string? CourseBookingId { get; set; }
+
+
+    private string? UserId;
+    private string? UserRole;
+
+    private ApplicationUser? ApplicationUserCourse = new ApplicationUser();
+    private CourseBooking? CourseBooking = new CourseBooking();
+    private List<GradeCourse>? GradeCourse = new List<GradeCourse>();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        // UserId =  UserService.GetLoggedInUserId();
+        // UserRole =  UserService.GetLoggedInUserRole();
+
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+
+        try
+        {
+            if (StudentId != null && CourseBookingId == null)
+            {
+
+
+                ApplicationUserCourse = context.ApplicationUsers
+                .Include(x => x.Curriculums)
+                .Include(x => x.Grades)
+                .Where(x => x.Id == StudentId).FirstOrDefault();
+
+             
+
+                CourseBooking = new CourseBooking();
+
+                if (ApplicationUserCourse != null)
+                {
+                    GradeCourse = context.GradeCourses
+                   .Include(x => x.Courses).ThenInclude(x => x.Curriculums)
+                    .Where(x => x.GradeId == ApplicationUserCourse.GradeId && x.Courses.CurriculumId == ApplicationUserCourse.CurriculumId).ToList();
+                }
+            }
+
+            if (StudentId != null && CourseBookingId != null)
+            {
+
+
+                ApplicationUserCourse = context.ApplicationUsers
+                .Include(x => x.Curriculums)
+                .Include(x => x.Grades)
+                .Where(x => x.Id == StudentId).FirstOrDefault();
+
+
+                if (ApplicationUserCourse != null)
+                {
+                    GradeCourse = context.GradeCourses
+                   .Include(x => x.Courses).ThenInclude(x => x.Curriculums)
+                    .Where(x => x.GradeId == ApplicationUserCourse.GradeId && x.Courses.CurriculumId == ApplicationUserCourse.CurriculumId).ToList();
+                }
+
+                CourseBooking = context.CourseBookings
+                       .Include(x => x.StudentApplicationUsers)
+                       .Include(x => x.TutorApplicationUsers)
+                       .Include(x => x.AdminApplicationUsers)
+                       .Include(x => x.Courses)
+                       .Where(x => x.Id == Convert.ToInt64(CourseBookingId))
+                       .FirstOrDefault();
+            }
+            else
+            {
+                CourseBooking = new CourseBooking();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+
+
+    private void CourseCreate()
+    {
+        var validator = new CourseBooking.CourseBookingValidator();
+        var validationResult = validator.Validate(CourseBooking);
+
+        if (validationResult.IsValid)
+        {
+            try
+            {
+                if (UserRole == "Admin")
+                {
+                    CourseBooking.AdminId = UserId;
+                }
+                var obj = new CourseBooking
+                    {
+                        StudentId = StudentId,
+                        AdminId = CourseBooking.AdminId,
+                        CourseId = CourseBooking.CourseId,
+                        StudentRemarks = CourseBooking.StudentRemarks,
+                        AdminRemarks = CourseBooking.AdminRemarks,
+                        IsSubmited = true,
+                        Status="Pending"
+                    };
+                context.CourseBookings.Add(obj);
+                context.SaveChanges();
+
+                var CourseName = context.CourseBookings.Where(x => x.Id == Convert.ToInt64(CourseBookingId)).Include(x => x.Courses).Select(x => x.Courses.Name).FirstOrDefault();
+
+
+                var obj1 = new AllNotification
+                    {
+                        CourseBookingId = obj.Id,
+                        ForAdmin = true,
+                        Notification = $"{CourseName} Course Booking Need To Be Approved"
+
+                    };
+                context.AllNotifications.Add(obj1);
+                context.SaveChanges();
+
+
+                NavigationManager.NavigateTo($"/StudentBookedCourse/{StudentId}");
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+    private void CourseEdit()
+    {
+        var validator = new CourseBooking.CourseBookingValidator();
+        var validationResult = validator.Validate(CourseBooking);
+
+        if (validationResult.IsValid)
+        {
+            try
+            {
+                if (UserRole == "Admin")
+                {
+                    CourseBooking.AdminId = UserId;
+                }
+
+                CourseBooking.IsSubmited = true;
+                CourseBooking.IsAdminApproved = false;
+                CourseBooking.IsAdminRejected = false;
+                CourseBooking.IsTutorRejected = false;
+                CourseBooking.Status = "Pending";
+                context.SaveChanges();
+
+                var notification = context.AllNotifications.Where(x => x.CourseBookingId == CourseBooking.Id).ToList();
+                context.AllNotifications.RemoveRange(notification);
+                context.SaveChanges();
+
+                var CourseName = context.CourseBookings.Where(x => x.Id == Convert.ToInt64(CourseBookingId)).Include(x=>x.Courses).Select(x=>x.Courses.Name).FirstOrDefault();
+
+                var obj1 = new AllNotification
+                    {
+                        CourseBookingId = Convert.ToInt64(CourseBookingId),
+                        ForAdmin = true,
+                        Notification = $"{CourseName} Course Booking Need To Be Approved Again"
+
+                    };
+                context.AllNotifications.Add(obj1);
+                context.SaveChanges();
+
+                context.SaveChanges();
+                NavigationManager.NavigateTo($"/StudentBookedCourse/{StudentId}");
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+    internal async Task HandleInvalidSubmit()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToFirstError");
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+
+}

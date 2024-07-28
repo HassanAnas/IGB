@@ -1,0 +1,229 @@
+﻿@page "/TutorProgress/{TutorId?}"
+
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject IModalService ModalService
+@inject ApplicationDbContext context
+
+@attribute [Authorize(Roles = "Tutor")]
+
+<h3>Progress Tracker</h3>
+
+<div class="col-sm-6 offset-sm-3">
+    @if (CourseBooking != null && CourseBooking.Any())
+    {
+        <RadzenCard class="w-100 mb-4" Style="display: flex; align-items: center; gap: 0.5rem">
+            <RadzenCheckBox @bind-Value="@Smooth" Name="smooth"></RadzenCheckBox>
+            <RadzenLabel Text="Smooth" Component="smooth" Style="margin-right: 1rem;" />
+            <RadzenCheckBox @bind-Value="@Detail" Name="dataLabels"></RadzenCheckBox>
+            <RadzenLabel Text="Show Data Labels" Component="dataLabels" Style="margin-right: 1rem;" />
+            <RadzenCheckBox @bind-Value="@Marker" Name="markers"></RadzenCheckBox>
+            <RadzenLabel Text="Show Markers" Component="markers" />
+        </RadzenCard>
+
+
+        <RadzenChart>
+            @foreach (var item in CourseBooking)
+            {
+                <RadzenLineSeries Smooth="@Smooth" Data="@item.LessonBookings" CategoryProperty="LessonName" Title="@item.Courses.Name" LineType="LineType.Solid" ValueProperty="StudentScore">
+                    <RadzenMarkers Visible="@Marker" MarkerType="MarkerType.Circle" />
+                    <RadzenSeriesDataLabels Visible="@Detail" />
+                </RadzenLineSeries>
+            }
+            <RadzenValueAxis Min="0" Max="4">
+                <RadzenGridLines Visible="true" />
+                <RadzenAxisTitle Text="GPA" />
+            </RadzenValueAxis>
+
+            <RadzenCategoryAxis>
+                <RadzenGridLines Visible="true" />
+                <RadzenAxisTitle Text="Lessons" />
+            </RadzenCategoryAxis>
+
+        </RadzenChart>
+    }
+</div>
+
+<label>Select A Course:</label>
+<RadzenDropDown class="form-control" @bind-Value=@CourseBookingId Data=@CourseBooking TextProperty="Courses.Name" ValueProperty="Id"
+                FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select A Course" Change="CourseChange" />
+
+
+
+<div class="container">
+    <div class="row">
+
+        @if (PagedCourseBooking != null && PagedCourseBooking.Any())
+        {
+            @foreach (var item in PagedCourseBooking)
+            {
+                <div class="col-sm-6">
+                    <RadzenCard class="w-100 mb-4" Style="display: flex; align-items: center; gap: 0.5rem">
+                        <RadzenCheckBox @bind-Value="@item.Smooth" Name="smooth"></RadzenCheckBox>
+                        <RadzenLabel Text="Smooth" Component="smooth" Style="margin-right: 1rem;" />
+                        <RadzenCheckBox @bind-Value="@item.Detail" Name="dataLabels"></RadzenCheckBox>
+                        <RadzenLabel Text="Show Data Labels" Component="dataLabels" Style="margin-right: 1rem;" />
+                        <RadzenCheckBox @bind-Value="@item.Marker" Name="markers"></RadzenCheckBox>
+                        <RadzenLabel Text="Show Markers" Component="markers" />
+                    </RadzenCard>
+
+
+                    <RadzenChart>
+
+                        <RadzenLineSeries Smooth="@item.Smooth" Data="@item.LessonBookings" CategoryProperty="LessonName" Title="@item.Courses.Name" LineType="LineType.Solid" ValueProperty="StudentScore">
+                            <RadzenMarkers Visible="@item.Marker" MarkerType="MarkerType.Circle" />
+                            <RadzenSeriesDataLabels Visible="@item.Detail" />
+                        </RadzenLineSeries>
+
+                        <RadzenValueAxis Min="0" Max="4">
+                            <RadzenGridLines Visible="true" />
+                            <RadzenAxisTitle Text="GPA" />
+                        </RadzenValueAxis>
+
+                        <RadzenCategoryAxis>
+                            <RadzenGridLines Visible="true" />
+                            <RadzenAxisTitle Text="Lessons" />
+                        </RadzenCategoryAxis>
+
+                    </RadzenChart>
+                </div>
+
+            }
+        }
+
+    </div>
+
+    <div class="row">
+        <div class="col text-center">
+            <RadzenPager PageSize="2" Count="@Count" @bind-CurrentPage="@CurrentPage" PageChanged="OnPageChanged" />
+        </div>
+    </div>
+</div>
+
+@code {
+
+    [Parameter]
+    public string? TutorId { get; set; }
+
+    private string? UserId;
+    private string? UserRole;
+
+    private bool Smooth = true;
+    private bool Detail = true;
+    private bool Marker = true;
+
+    private List<CourseBooking> CourseBooking = new List<CourseBooking>();
+    private List<CourseBooking> PagedCourseBooking = new List<CourseBooking>();
+
+    private int CurrentPage = 0;
+    private int PageSize = 2;
+    private int Count = 0;
+    private long? CourseBookingId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            UserId = UserService.LoggedInUserId;
+            UserRole = UserService.LoggedInUserRole;
+
+            CourseBooking = context.CourseBookings
+                .Include(x => x.StudentApplicationUsers)
+                .Include(x => x.TutorApplicationUsers)
+                .Include(x => x.AdminApplicationUsers)
+                .Include(x => x.Courses)
+                .Include(x => x.LessonBookings).ThenInclude(x => x.TutorFeedbacks)
+                .OrderByDescending(x => x.CourseBookingDate)
+                .Where(x => x.TutorApplicationUsers.Id == TutorId && (x.IsBooked == true || x.IsCompleted == true))
+                .ToList();
+
+            LoadPagedCourseBooking();
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    private void LoadPagedCourseBooking()
+    {
+        try
+        {
+            PagedCourseBooking = CourseBooking
+                .Skip(CurrentPage * PageSize)
+                .Take(PageSize)
+                .ToList();
+
+            Count = CourseBooking.Count;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    private void NextPage()
+    {
+        try
+        {
+            CurrentPage++;
+            LoadPagedCourseBooking();
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    private void PreviousPage()
+    {
+        try
+        {
+            CurrentPage--;
+            LoadPagedCourseBooking();
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    private void OnPageChanged(PagerEventArgs args)
+    {
+        try
+        {
+            CurrentPage = args.PageIndex;
+            LoadPagedCourseBooking();
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    private void CourseChange()
+    {
+        try
+        {
+
+            if (CourseBookingId == null)
+            {
+                LoadPagedCourseBooking();
+            }
+            else
+            {
+                PagedCourseBooking = CourseBooking
+               .Where(x => x.Id == CourseBookingId)
+                   .ToList();
+
+                Count = PagedCourseBooking.Count;
+
+            }
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+}

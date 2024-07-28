@@ -1,0 +1,24 @@
+﻿<ModalHeader>
+    <ModalTitle>User Not Active Modal</ModalTitle>
+    <Blazorise.CloseButton />
+</ModalHeader>
+<ModalBody MaxHeight="70">
+
+  <Span>System Not Approve Your Account , Still Your Account Is Dective</Span>
+
+</ModalBody>
+<ModalFooter>
+    <Blazorise.Button Color="Color.Success" Clicked="Close">Close</Blazorise.Button>
+</ModalFooter>
+
+@code {
+    [Inject] public IModalService ModalService { get; set; }    
+    [Inject] NavigationManager NavigationManager { get; set; }      
+
+    private void Close()
+    {
+        NavigationManager.NavigateTo("Home");
+        ModalService.Hide();
+    }
+}
+

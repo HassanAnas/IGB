@@ -1,0 +1,202 @@
+﻿@page "/StudentIndex"
+
+@inject ApplicationDbContext context
+@inject NavigationManager NavigationManager
+@inject UserManager<IdentityUser> UserManager
+@inject UserService UserService
+@inject Blazorise.IModalService ModalService
+
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+<h3>Student Index</h3>
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <RadzenTextBox Placeholder="Search..." @bind-Value="@searchTerm" Change="@(args => FilterChanged())" />
+    </div>
+</div>
+
+<RadzenDataGrid Data="@ApplicationUser" Count="@count" TItem="ApplicationUser" LoadData="@LoadData"
+                ShowPagingSummary="true"
+                AllowSorting="true"
+                AllowPaging="true" PageSize="10"
+                PageSizeOptions="new int[] { 10 , 25, 50 }"
+                AllowFiltering="true" FilterMode="FilterMode.Simple" FilterDelay="2000"
+                AllowColumnResize="true"
+                AllowColumnPicking="true"
+                ColumnWidth="150px">
+
+    <Columns>
+
+                <RadzenDataGridColumn TItem="ApplicationUser" Title="Serial No.">
+            <Template Context="item">
+                @((ApplicationUser.IndexOf(item) + 1) + ((currentPage - 1) * pageSize))
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Frozen="true" TItem="ApplicationUser" Property="Email" Title="Email" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="ApplicationUser" Property="FirstName" Title="First Name" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="ApplicationUser" Property="Tag" Title="Tag" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="ApplicationUser" Property="Update" Title="Profile Update" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="ApplicationUser" Title="IsActive" TextAlign="TextAlign.Center">
+            <Template Context="user">
+                <RadzenSwitch TValue="bool" class="form-check-input" @bind-Value="user.IsActive" Change="@(args => IsActive(args, user))" />
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="ApplicationUser" Title="Action">
+            <Template Context="item">
+                <RadzenButton Text="Edit" Class="btn btn-primary" Click="@(args => GoToUserUpdate(item.Id))" />
+                <RadzenButton Text="Course Booking" Class="btn btn-primary" Click="@(args => CourseBooking(item.Id))" />
+                <RadzenButton Text="Delete" Class="btn btn-primary" Click="@(args => Delete(item))" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+
+</RadzenDataGrid>
+
+
+@code {
+    int count;
+    string searchTerm = "";
+
+    int currentPage = 1;
+    int pageSize = 10;
+
+    private LoadDataArgs Lastargs = null;
+
+    private List<ApplicationUser> ApplicationUser = new List<ApplicationUser>();
+
+    private string? UserId;
+    private string? UserRole;
+
+    private ApplicationUser? applicationUser = new ApplicationUser();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // UserId =  UserService.GetLoggedInUserId();
+        // UserRole =  UserService.GetLoggedInUserRole();
+
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+
+        applicationUser = context.ApplicationUsers.Where(x => x.Id == UserId).FirstOrDefault();
+
+
+        ApplicationUser = context.ApplicationUsers.Where(x => x.IsStudent == true && x.IsDeleted == false).ToList();
+        count = ApplicationUser.Count();
+    }
+    private void Load()
+    {
+        ApplicationUser = context.ApplicationUsers.Where(x => x.IsStudent == true && x.IsDeleted == false).ToList();
+        count = ApplicationUser.Count();
+    }
+
+    private void GoToUserUpdate(string userId)
+    {
+        NavigationManager.NavigateTo($"/StudentProfile/{userId}");
+    }
+    private void CourseBooking(string userId)
+    {
+        NavigationManager.NavigateTo($"/StudentBookedCourse/{userId}");
+    }
+    private void Delete(ApplicationUser user)
+    {
+        try
+        {
+            var record = context.ApplicationUsers.Where(x => x.Id == user.Id).FirstOrDefault();
+            record.IsDeleted = true;
+            record.IsActive = false;
+            record.EmailConfirmed = false;
+            context.SaveChanges();
+
+            if (Lastargs != null)
+            {
+                LoadData(Lastargs);
+            }
+            else
+            {
+                Load();
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+
+
+
+    void LoadData(LoadDataArgs args)
+    {
+        Lastargs = args;
+
+        var query = context.ApplicationUsers.Where(x => x.IsStudent == true && x.IsDeleted == false).AsQueryable();
+
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+
+            query = query.Where(p => p.UserName.Contains(searchTerm));
+        }
+
+        if (!string.IsNullOrEmpty(args.Filter))
+        {
+
+            query = query.Where(args.Filter);
+        }
+
+        if (!string.IsNullOrEmpty(args.OrderBy))
+        {
+            query = query.OrderBy(args.OrderBy);
+        }
+
+        count = query.Count();
+
+        int skip = args.Skip ?? 0;
+        int top = args.Top ?? 10;
+
+        currentPage = (skip / top) + 1;
+        pageSize = top;
+
+        ApplicationUser = query.Skip(skip).Take(top).ToList();
+    }
+
+
+    void FilterChanged()
+    {
+        LoadData(new LoadDataArgs());
+    }
+
+    private void IsActive(bool newValue, ApplicationUser user)
+    {
+        if (newValue == true)
+        {
+            user.EmailConfirmed = true;
+            user.IsActive = true;
+        }
+        else
+        {
+            user.IsActive = false;
+        }
+
+        context.ApplicationUsers.Update(user);
+        context.SaveChanges();
+
+        if (Lastargs != null)
+        {
+            LoadData(Lastargs);
+        }
+        else
+        {
+            Load();
+        }
+    }
+
+}

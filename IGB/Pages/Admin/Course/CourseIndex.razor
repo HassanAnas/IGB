@@ -1,0 +1,194 @@
+﻿@page "/CourseIndex"
+
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject UserService UserService
+
+@attribute [Authorize(Roles = "Admin")]
+
+
+<h3>Course Index</h3>
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <button class="btn btn-secondary" @onclick="GoBackToCreate">Create</button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <RadzenTextBox Placeholder="Search..." @bind-Value="@searchTerm" Change="@(args => FilterChanged())" />
+    </div>
+</div>
+
+<RadzenDataGrid Data="@Course" Count="@count" TItem="Course" LoadData="@LoadData"
+                ShowPagingSummary="true"
+                AllowSorting="true"
+                AllowPaging="true" PageSize="10"
+                PageSizeOptions="new int[] { 10 , 25, 50 }"
+                AllowFiltering="true" FilterMode="FilterMode.Simple" FilterDelay="2000"
+                AllowColumnResize="true"
+                AllowColumnPicking="true"
+ColumnWidth="150px">
+
+    <Columns>
+
+        <RadzenDataGridColumn TItem="Course" Title="Serial No.">
+            <Template Context="item">
+                @((Course.IndexOf(item) + 1) + ((currentPage - 1) * pageSize))
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="Course" Property="Name" Title="Course" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="Course" Property="Curriculums.Name" Title="Curriculums" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="Course" Title="Grades">
+            <Template Context="data">
+                @foreach (var gradeCourse in data.GradeCourses)
+                {
+                    if (gradeCourse.Grades != null)
+                    {
+                        <span>@gradeCourse.Grades.Name</span>
+
+                        <span>, </span>
+                    }
+                }
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Course" Title="Topics">
+            <Template Context="data">
+                @foreach (var gradeCourse in data.CourseTopics)
+                {
+                    if (gradeCourse != null)
+                    {
+                        <span>@gradeCourse.Name</span>
+
+                        <span>, </span>
+                    }
+                }
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="Course" Title="Action" Width="160px">
+            <Template Context="data">
+                <RadzenButton Text="Edit" Class="btn btn-primary" Click="@(args => Edit(data.Id))" />
+                <RadzenButton Text="Delete" Class="btn btn-primary" Click="@(args => Delete(data))" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+
+</RadzenDataGrid>
+
+
+
+@code {
+    private List<Course>? Course;
+    int count;
+    string searchTerm = "";
+
+            int currentPage = 1;
+    int pageSize = 10;
+
+        private LoadDataArgs Lastargs = null;
+
+    private string? UserId;
+    private string? UserRole;
+
+    private ApplicationUser? ApplicationUser = new ApplicationUser();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // UserId =  UserService.GetLoggedInUserId();
+        // UserRole =  UserService.GetLoggedInUserRole();
+
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+        ApplicationUser = context.ApplicationUsers.Where(x => x.Id == UserId).FirstOrDefault();
+      
+        Course = new List<Course>();
+        Load();
+    }
+
+    private void Load()
+    {
+
+        count = context.Courses.Count();
+        Course = context.Courses.Include(x => x.Curriculums).Include(x => x.GradeCourses).ThenInclude(x => x.Grades).Include(x => x.CourseTopics).Skip(0).Take(10).ToList();
+    }
+
+    void LoadData(LoadDataArgs args)
+    {
+
+         Lastargs = args;
+        var query = context.Courses.Include(x => x.Curriculums).AsQueryable();
+
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+
+            query = query.Where(p => p.Name.Contains(searchTerm));
+        }
+
+        if (!string.IsNullOrEmpty(args.Filter))
+        {
+
+            query = query.Where(args.Filter);
+        }
+
+        if (!string.IsNullOrEmpty(args.OrderBy))
+        {
+            query = query.OrderBy(args.OrderBy);
+        }
+
+        count = query.Count();
+
+        int skip = args.Skip ?? 0;
+        int top = args.Top ?? 10;
+
+                  currentPage = (skip / top) + 1;
+        pageSize = top;
+
+        Course = query.Skip(skip).Take(top).ToList();
+    }
+
+
+    void FilterChanged()
+    {
+        LoadData(new LoadDataArgs());
+    }
+
+
+    private void Edit(long id)
+    {
+        NavigationManager.NavigateTo($"/CourseCreate/{id}");
+    }
+    private void Delete(Course data)
+    {
+        try
+        {
+            context.Courses.Remove(data);
+            context.SaveChanges();
+            if (Lastargs != null)
+            {
+                LoadData(Lastargs);
+            }
+            else
+            {
+                Load();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception, e.g., show error message to the user
+            Console.WriteLine($"Error deleting main section: {ex.Message}");
+        }
+    }
+
+    private void GoBackToCreate()
+    {
+        NavigationManager.NavigateTo("/CourseCreate");
+    }
+  
+
+}
+

@@ -1,0 +1,166 @@
+﻿@page "/TutorFeedbacks/{TutorId?}"
+
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject IModalService ModalService
+@inject ApplicationDbContext context
+
+@attribute [Authorize(Roles = "Tutor")]
+
+<h3>Tutor Feedbacks</h3>
+
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <RadzenTextBox Placeholder="Search..." @bind-Value="@TutorFeedbacksearchTerm" Change="@(args => TutorFeedbackFilterChanged())" />
+    </div>
+</div>
+
+<RadzenDataGrid Data="@TutorFeedback" Count="@TutorFeedbackcount" TItem="TutorFeedback" LoadData="@TutorFeedbackLoadData"
+                ShowPagingSummary="true"
+                AllowSorting="true"
+                AllowPaging="true" PageSize="10"
+                PageSizeOptions="new int[] { 10 , 25, 50 }"
+                AllowFiltering="true" FilterMode="FilterMode.Simple" FilterDelay="2000"
+                AllowColumnResize="true"
+                AllowColumnPicking="true"
+                ColumnWidth="150px">
+
+    <Columns>
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Title="#">
+            <Template Context="item">
+                @((TutorFeedback.IndexOf(item) + 1) + ((TutorFeedbackcurrentPage - 1) * TutorFeedbackpageSize))
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="LessonBookings.StartTime" Title="Date" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="LessonBookings.CourseBookings.StudentApplicationUsers.FirstName" Title="Student" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="LessonBookings.CourseBookings.TutorApplicationUsers.FirstName" Title="Tutor" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="LessonBookings.CourseBookings.Courses.Name" Title="Course" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="LessonBookings.LessonName" Title="Lesson" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="GradePrediction" Title="Grade Prediction" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="AverageGradePrediction" Title="Average Grade Prediction" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="MentalSkills" Title="Mental Skills" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="TopicUnderstandingLevel" Title="Topic Understanding Level" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="PreviousHomeWorkDone" Title="Previous HomeWork Done" Sortable="true">
+            <Template Context="data">
+                @if (data.PreviousHomeWorkDone == true)
+                {
+                    <Span>Done</Span>
+                }
+                else
+                {
+                    <Span>Not Done</Span>
+                }
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="NextHomework" Title="Next Homework" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="Announcement" Title="Announcement" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="Remarks" Title="Remarks" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="Status" Title="Status" Sortable="true" />
+
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Title="Action">
+            <Template Context="data">
+
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+
+</RadzenDataGrid>
+
+@code {
+    [Parameter]
+    public string? TutorId { get; set; }
+
+    private string? UserId;
+    private string? UserRole;
+
+    private List<TutorFeedback> TutorFeedback = new List<TutorFeedback>();
+
+    int TutorFeedbackcount;
+    string TutorFeedbacksearchTerm = "";
+    int TutorFeedbackcurrentPage = 1;
+    int TutorFeedbackpageSize = 10;
+
+    protected override async Task OnInitializedAsync()
+    {
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+
+        TutorFeedback = context.TutorFeedbacks
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.Courses)
+        .Where(x => x.LessonBookings.CourseBookings.TutorApplicationUsers.Id == TutorId)
+        .Skip(0).Take(10).ToList();
+
+         TutorFeedbackcount = context.TutorFeedbacks.Where(x => x.LessonBookings.CourseBookings.TutorApplicationUsers.Id == TutorId).Count();
+
+             }
+
+
+    //--------------
+
+
+
+    void TutorFeedbackLoadData(LoadDataArgs args)
+    {
+        var query = context.TutorFeedbacks
+              .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.Courses)
+        .Where(x => x.LessonBookings.CourseBookings.TutorApplicationUsers.Id == TutorId)
+        .AsQueryable();
+
+        if (!string.IsNullOrEmpty(TutorFeedbacksearchTerm))
+        {
+
+            // query = query.Where(p => p.Name.Contains(StudentFeedbacksearchTerm));
+        }
+
+        if (!string.IsNullOrEmpty(args.Filter))
+        {
+
+            query = query.Where(args.Filter);
+        }
+
+        if (!string.IsNullOrEmpty(args.OrderBy))
+        {
+            query = query.OrderBy(args.OrderBy);
+        }
+
+        TutorFeedbackcount = query.Count();
+
+        int skip = args.Skip ?? 0;
+        int top = args.Top ?? 10;
+        TutorFeedbackcurrentPage = (skip / top) + 1;
+        TutorFeedbackpageSize = top;
+
+        TutorFeedback = query.Skip(skip).Take(top).ToList();
+    }
+
+
+    void TutorFeedbackFilterChanged()
+    {
+        TutorFeedbackLoadData(new LoadDataArgs());
+    }
+
+
+
+}

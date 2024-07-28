@@ -1,0 +1,101 @@
+﻿@page "/"
+@inject NavigationManager NavigationManager
+@inject UserService UserService
+@inject ApplicationDbContext context
+
+@code {
+    private string? UserRole;
+    private string? UserId;
+    private string? GuardianStudentId;
+
+    private bool IsUpdated ;
+    private bool IsActive ;
+
+    private bool IsGuardianStudentUpdated ;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+        GuardianStudentId = UserService.LoggedInGuardianStudentId;
+
+        IsUpdated = context.ApplicationUsers.Where(x => x.Id == UserId).Select(x => x.IsUpdated).FirstOrDefault();
+
+        if (UserRole == "Guardian")
+        {
+            IsGuardianStudentUpdated = context.ApplicationUsers.Where(x => x.Id == GuardianStudentId).Select(x => x.IsUpdated).FirstOrDefault();
+        }
+
+        NavigateBasedOnRole();
+    }
+
+    private void NavigateBasedOnRole()
+    {
+        switch (UserRole)
+        {
+            case "SuperAdmin":
+                NavigationManager.NavigateTo("/SuperAdminDashboard");
+                break;
+
+            case "Admin":
+              
+                    if (IsUpdated == true)
+                    {
+                        NavigationManager.NavigateTo("/AdminDashboard");
+                    }
+                    else
+                    {
+                        NavigationManager.NavigateTo($"/AdminProfile/{UserId}");
+                    }
+              
+                break;
+
+            case "Tutor":
+             
+                if (IsUpdated == true)
+                {
+                    NavigationManager.NavigateTo($"/TutorDashboard/{UserId}");
+                }
+                else
+                {
+                    NavigationManager.NavigateTo($"/TutorProfile/{UserId}");
+                }   
+             
+                break;
+
+            case "Student":
+             
+                if (IsUpdated == true)
+                {
+                    NavigationManager.NavigateTo($"/StudentDashboard/{UserId}");
+                }
+                else
+                {
+                    NavigationManager.NavigateTo($"/StudentProfile/{UserId}");
+                }  
+     
+                break;
+
+            case "Guardian":
+              
+                if (IsUpdated == true && IsGuardianStudentUpdated==true)
+                {
+                    NavigationManager.NavigateTo("/StudentDashboard/{GuardianStudentId}");
+                }
+                else
+                {
+                    NavigationManager.NavigateTo("/StudentProfile/{GuardianStudentId}");
+                }
+              
+                break;
+          
+            default:
+             
+                NavigationManager.NavigateTo("/Home");
+                break;
+        }
+    }
+}
+

@@ -1,0 +1,319 @@
+﻿@page "/CourseCreate/{Id?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject IJSRuntime JSRuntime
+
+@attribute [Authorize(Roles = "Admin")]
+
+<h3>@(Id != null ? "Course Edit" : "Course Create")</h3>
+
+@if (Id != null)
+{
+    <EditForm Model="@Course" OnValidSubmit="Edit" OnInvalidSubmit="@HandleInvalidSubmit">
+        <FluentValidationValidator />
+        <div class="form-group">
+
+            <label>Course Name:</label>
+            <InputText @bind-Value="Course.Name" class="form-control" />
+            <ValidationMessage For="@(() => Course.Name)" />
+
+
+            <label>Curriculum:</label>
+            <RadzenDropDown class="form-control" @bind-Value=@Course.CurriculumId Data=@Curriculum TextProperty="Name" ValueProperty="Id"
+                            FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Grades" />
+
+
+
+            <label>Grades:</label>
+            <RadzenDropDown class="form-control" @bind-Value=@Grades Data=@Grade TextProperty="Name" ValueProperty="Id"
+                            FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" Multiple=true AllowClear=true Placeholder="Select Grades" />
+
+
+            <button type="button" class="btn btn-primary" @onclick="AddTopic">Add Topic</button>
+
+            <table class="table">
+                <thead>
+                    <tr>
+
+                        <th>Topic</th>
+                        <th>Action</th>
+
+
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in CourseTopic)
+                    {
+                        <tr>
+                            <td> <InputText @bind-Value="item.Name" class="form-control" /></td>
+                            <td><button type="button" class="btn btn-danger" @onclick="() => RemoveTopic(item)">Remove</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+}
+else
+{
+    <EditForm Model="@Course" OnValidSubmit="Create" OnInvalidSubmit="@HandleInvalidSubmit">
+        <FluentValidationValidator />
+        <div class="form-group">
+
+            <label>Course Name:</label>
+            <InputText @bind-Value="Course.Name" class="form-control" />
+            <ValidationMessage For="@(() => Course.Name)" />
+
+            <label>Curriculum:</label>
+            <RadzenDropDown class="form-control" @bind-Value=@Course.CurriculumId Data=@Curriculum TextProperty="Name" ValueProperty="Id"
+                            FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Grades" />
+
+
+
+            <label>Grades:</label>
+            <RadzenDropDown  class="form-control" @bind-Value=@Grades Data=@Grade TextProperty="Name" ValueProperty="Id"
+                            FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" Multiple=true AllowClear=true Placeholder="Select Grades" />
+
+     
+            <button type="button" class="btn btn-primary" @onclick="AddTopic">Add Topic</button>
+
+            <table class="table">
+                <thead>
+                    <tr>
+
+                        <th>Topic</th>
+                        <th>Action</th>
+
+
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in CourseTopic)
+                    {
+                        <tr>
+                            <td> <InputText @bind-Value="item.Name" class="form-control" /></td>
+                            <td><button type="button" class="btn btn-danger" @onclick="() => RemoveTopic(item)">Remove</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+}
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <button class="btn btn-secondary" @onclick="GoBackToIndex">Back</button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+
+    private Course? Course { get; set; } = new Course();
+    private List<Curriculum>? Curriculum { get; set; } = new List<Curriculum>();
+    private List<Grade>? Grade { get; set; } = new List<Grade>();
+    private CourseTopic? courseTopic { get; set; } = new CourseTopic();
+    private List<CourseTopic>? CourseTopic { get; set; } = new List<CourseTopic>();
+    public List<long>? Grades = new List<long>();
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id != null)
+        {
+            Course = context.Courses.Include(x => x.Curriculums).Where(x => x.Id == Convert.ToInt64(Id)).FirstOrDefault();
+            Curriculum = context.Curriculums.ToList();
+            Grade = context.Grades.ToList();
+
+            Grades = context.GradeCourses
+     .Where(x => x.CourseId == Convert.ToInt64(Id))
+     .Select(x => x.GradeId ?? 0)
+     .ToList();
+
+            CourseTopic = context.CourseTopics.Where(x => x.CourseId == Convert.ToInt64(Id)).ToList();
+
+
+
+        }
+        else
+        {
+            Course = new Course();
+            Curriculum = context.Curriculums.ToList();
+            Grade = context.Grades.ToList();
+            CourseTopic = new List<CourseTopic>();
+            courseTopic = new CourseTopic();
+            CourseTopic.Add(courseTopic);
+            courseTopic = new CourseTopic();
+            Grades = new List<long>();
+        }
+        Load();
+    }
+    private void Load()
+    {
+        try
+        {
+            if (Id != null)
+            {
+                Course = context.Courses.Include(x => x.Curriculums).Where(x => x.Id == Convert.ToInt64(Id)).FirstOrDefault();
+                Curriculum = context.Curriculums.ToList();
+                Grade = context.Grades.ToList();
+
+                Grades = context.GradeCourses
+    .Where(x => x.CourseId == Convert.ToInt64(Id))
+    .Select(x => x.GradeId ?? 0)
+    .ToList();
+
+                CourseTopic = context.CourseTopics.Where(x => x.CourseId == Convert.ToInt64(Id)).ToList();
+            }
+            else
+            {
+                Course = new Course();
+                Curriculum = context.Curriculums.ToList();
+                Grade = context.Grades.ToList();
+                CourseTopic = new List<CourseTopic>();
+                courseTopic = new CourseTopic();
+                CourseTopic.Add(courseTopic);
+                courseTopic = new CourseTopic();
+                Grades = new List<long>();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here, such as logging or displaying an error message
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+
+
+    private void Create()
+    {
+        var validator = new Course.CourseValidator();
+        var validationResult = validator.Validate(Course);
+
+        if (validationResult.IsValid)
+        {
+            try
+            {
+                var obj = new Course
+                    {
+                        Name = Course.Name,
+                        CurriculumId = Course.CurriculumId
+                    };
+                context.Courses.Add(obj);
+                context.SaveChanges();
+
+                foreach (var item in Grades)
+                {
+                    var obj1 = new GradeCourse
+                        {
+                            GradeId = item,
+                            CourseId = obj.Id
+
+                        };
+                    context.GradeCourses.Add(obj1);
+                    context.SaveChanges();
+                }
+
+                foreach (var item in CourseTopic)
+                {
+                    var obj2 = new CourseTopic
+                        {
+                            Name = item.Name,
+                            CourseId = obj.Id
+
+                        };
+                    context.CourseTopics.Add(obj2);
+                    context.SaveChanges();
+                }
+
+                Load();
+                NavigationManager.NavigateTo("/CourseIndex");
+            }
+
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+    private void Edit()
+    {
+        var validator = new Course.CourseValidator();
+        var validationResult = validator.Validate(Course);
+
+        if (validationResult.IsValid)
+        {
+            try
+            {
+                var GradesCourses = context.GradeCourses.Where(x => x.CourseId == Convert.ToInt64(Id)).ToList();
+                context.GradeCourses.RemoveRange(GradesCourses);
+
+                var CoursesTopics = context.CourseTopics.Where(x => x.CourseId == Convert.ToInt64(Id)).ToList();
+                context.CourseTopics.RemoveRange(CoursesTopics);
+
+                context.SaveChanges();
+
+                foreach (var item in Grades)
+                {
+                    var obj1 = new GradeCourse
+                        {
+                            GradeId = item,
+                            CourseId = Convert.ToInt64(Id)
+
+                        };
+                    context.GradeCourses.Add(obj1);
+                    context.SaveChanges();
+                }
+
+                foreach (var item in CourseTopic)
+                {
+                    var obj2 = new CourseTopic
+                        {
+                            Name = item.Name,
+                            CourseId = Convert.ToInt64(Id)
+
+                        };
+                    context.CourseTopics.Add(obj2);
+                    context.SaveChanges();
+                }
+
+                Load();
+                NavigationManager.NavigateTo("/CourseIndex");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+    private void AddTopic()
+    {
+        CourseTopic.Add(courseTopic);
+        courseTopic = new CourseTopic();
+    }
+    private void RemoveTopic(CourseTopic record)
+    {
+        CourseTopic.Remove(record);
+    }
+    private void GoBackToIndex()
+    {
+        NavigationManager.NavigateTo("/CourseIndex");
+    }
+    internal async Task HandleInvalidSubmit()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToFirstError");
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+}

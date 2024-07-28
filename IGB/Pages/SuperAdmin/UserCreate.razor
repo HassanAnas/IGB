@@ -1,0 +1,287 @@
+﻿@page "/UserCreate/{json?}"
+
+
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject UserService UserService
+@inject UserManager<IdentityUser> UserManager
+@inject EmailService emailService
+@inject HttpClient httpclient
+@inject IConfiguration _configuration
+
+ 
+@if(json == null)
+{
+    <h3>User Create</h3>
+
+<EditForm Model="@ApplicationUser" OnValidSubmit="Create">
+    <FluentValidationValidator Validator="@UserCreateValidator" />
+
+    <div class="form-group">     
+
+        <label>Email</label>
+        <input type="email" @bind="ApplicationUser.Email" class="form-control" />
+        <ValidationMessage For="@(() => ApplicationUser.Email)" />
+
+        @if (!_showPassword)
+        {
+
+            <div class="form-group">
+                <label for="password">New Password:</label>
+                <input type="password" @bind="ApplicationUser.PasswordHash" class="form-control" />
+                <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordVisibility">
+                    <i class="fa @(_showPassword ? "fa-eye" : "fa-eye-slash")"></i>
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="form-group">
+                <label for="password">New Password:</label>
+                <input type="text" @bind="ApplicationUser.PasswordHash" class="form-control" />
+                <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordVisibility">
+                    <i class="fa @(_showPassword ? "fa-eye" : "fa-eye-slash")"></i>
+                </button>
+            </div>
+        }
+        <ValidationMessage For="@(() => ApplicationUser.PasswordHash)" />
+
+        <label>Confirm Password:</label>
+        <input type="password" @bind="ConfirmPassword" class="form-control" />
+
+        @if (ConfirmPassword != ApplicationUser.PasswordHash)
+        {
+            <p style="color: red;">Passwords Not Matched</p>
+        }
+
+            <label>Role:</label>
+            <InputSelect @bind-Value="ApplicationUserRole.RoleId" class="form-control">
+                <option value="" disabled selected>Select An Option</option>
+                @if (UserRole == "SuperAdmin")
+                {
+                    <option value="de8dc073-416f-4716-89be-b1c48c9f9de1">Admin</option>
+                }
+                <option value="2c98e431-4a03-4999-807d-d7ac6ebedac9">Tutor</option>
+                <option value="feb14f16-e7ac-43bf-9bd2-e7de8d1ba71d">Student</option>
+
+            </InputSelect>
+            @if (string.IsNullOrEmpty(ApplicationUserRole.RoleId))
+            {
+                <p style="color: red;">Role Is Required</p>
+            }
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+}
+else
+{
+}
+@code {
+    [Parameter]
+    public string? json { get; set; }
+
+    public string? BaseUrl { get; set; }
+
+    private IValidator<ApplicationUser> UserCreateValidator { get; set; }
+
+    private ApplicationUser? ApplicationUser { get; set; } = new ApplicationUser();
+    private AllNotification? AllNotification { get; set; } = new AllNotification();
+    private ApplicationUserRole? ApplicationUserRole { get; set; } = new ApplicationUserRole();
+
+    private string? UserId;
+    private string? UserRole;
+
+    private string? RoleName;
+    private string? ConfirmPassword;
+
+    private bool _showPassword = false;
+
+    private void TogglePasswordVisibility()
+    {
+        _showPassword = !_showPassword;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            BaseUrl = _configuration["BaseUrl:BaseUrl"];
+
+            UserId = UserService.LoggedInUserId;
+            UserRole = UserService.LoggedInUserRole;
+
+            ApplicationUser = new ApplicationUser();
+            AllNotification = new AllNotification();
+            ApplicationUserRole = new ApplicationUserRole();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+    private void Load()
+    {
+        try
+        {
+            ApplicationUser = new ApplicationUser();
+            AllNotification = new AllNotification();
+            ApplicationUserRole = new ApplicationUserRole();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+
+    private void Create()
+    {
+        var validator = new ApplicationUser.UserCreateValidator(context);
+        var validationResult = validator.Validate(ApplicationUser);
+
+        if (validationResult.IsValid && ApplicationUser.PasswordHash == ConfirmPassword && ApplicationUserRole.RoleId != null)
+        {
+            try
+            {
+                var hashedPassword = UserManager.PasswordHasher.HashPassword(ApplicationUser, ApplicationUser.PasswordHash);
+                DateTime Date = DateTime.Now;
+
+                if (ApplicationUserRole.RoleId == "de8dc073-416f-4716-89be-b1c48c9f9de1")
+                {
+                    RoleName = "Admin";
+                    ApplicationUser.Tag= "A" + Date.ToString("yyyyMMddHHmmss");
+                    ApplicationUser.IsAdmin = true;
+                    AllNotification.Notification = "A New Admin Registeration Need To Be Approved";
+
+                }
+                else if (ApplicationUserRole.RoleId == "2c98e431-4a03-4999-807d-d7ac6ebedac9")
+                {
+                    RoleName = "Tutor";
+                    ApplicationUser.Tag = "T" + Date.ToString("yyyyMMddHHmmss");
+                    ApplicationUser.IsTutor = true;
+                    AllNotification.Notification = "A New Tutor Registeration Need To Be Approved";
+                }
+                else if (ApplicationUserRole.RoleId == "feb14f16-e7ac-43bf-9bd2-e7de8d1ba71d")
+                {
+                    RoleName = "Student";
+                    ApplicationUser.Tag = "S" + Date.ToString("yyyyMMddHHmmss");
+                    ApplicationUser.IsStudent = true;
+                    AllNotification.Notification = "A New Student Registeration Need To Be Approved";
+                }
+                ApplicationUser.UserName = ApplicationUser.Email;
+                ApplicationUser.NormalizedUserName = ApplicationUser.Email.ToUpper();
+                ApplicationUser.NormalizedEmail = ApplicationUser.Email.ToUpper();
+
+                var obj = new ApplicationUser
+                    {
+                        Email = ApplicationUser.Email,
+                        UserName = ApplicationUser.Email,
+                        NormalizedUserName = ApplicationUser.Email.ToUpper(),
+                        NormalizedEmail = ApplicationUser.Email.ToUpper(),
+                        PasswordHash = hashedPassword,
+                        Tag = ApplicationUser.Tag,
+                        IsAdmin = ApplicationUser.IsAdmin,
+                        IsTutor = ApplicationUser.IsTutor,
+                        RoleName = RoleName,
+                        IsStudent = ApplicationUser.IsStudent,
+
+                    };
+                context.ApplicationUsers.Add(obj);
+
+
+                var obj1 = new ApplicationUserRole
+                    {
+                        UserId = obj.Id,
+                        RoleId = ApplicationUserRole.RoleId
+                    };
+                context.ApplicationUserRoles.Add(obj1);
+
+
+                var notification = new AllNotification
+                    {
+                        ForAdmin=true,
+                        NewUserId = obj.Id,
+                        NewUserRole=RoleName,
+                        Notification = AllNotification.Notification
+                    };
+                context.AllNotifications.Add(notification);
+
+                context.SaveChanges();
+
+                string title = "Confirm Your IGB Account Registration";
+                string msg = $"Please <a href=\"{BaseUrl}/UserApprove/{obj.Id}/{notification.Id}\">click here</a> to approve the user.";
+                emailService.SendEmail(ApplicationUser.Email, title, msg);
+
+                if (UserRole == "SuperAdmin")
+                {
+                    if (RoleName == "Admin")
+                    {
+                        NavigationManager.NavigateTo("AdminIndex");
+                    }
+                    else if (RoleName == "Tutor")
+                    {
+                        NavigationManager.NavigateTo("TutorIndex");
+                    }
+                    else if (RoleName == "Student")
+                    {
+                        NavigationManager.NavigateTo("StudentIndex");
+                    }            
+                }
+                else
+                {
+                    NavigationManager.NavigateTo("Home");
+                }
+
+
+
+
+
+                // var obj = new ApplicationUserDto
+                // {
+                //         roleId = ApplicationUserRole.RoleId,
+                //         password = ApplicationUser.PasswordHash,
+                //     email=ApplicationUser.Email
+                // };
+
+
+
+
+                // string content = JsonSerializer.Serialize(obj);
+                // var stringContent = new StringContent(content, Encoding.UTF8, "application/json");
+                // var response = httpclient.PostAsync("https://localhost:7184/api/UserRegister/create", stringContent).Result;
+
+                // if (response != null && response.IsSuccessStatusCode)
+                // {
+                //     var responseString = response.Content.ReadAsStringAsync().Result;
+                //     if (responseString == "1")
+                //     {
+                //         // Handle success
+                //     }
+                //     else
+                //     {
+                //         // Handle failure
+                //     }
+                // }
+                // else
+                // {
+                //     // Handle HTTP error
+                // }
+
+
+              
+
+                Load();
+
+            }
+
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+
+}

@@ -1,0 +1,143 @@
+﻿@page "/StudentFeedbacks/{StudentId?}"
+
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject IModalService ModalService
+@inject ApplicationDbContext context
+
+@attribute [Authorize(Roles = "Student,Guardian")]
+
+<h3>Student Feedbacks</h3>
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <RadzenTextBox Placeholder="Search..." @bind-Value="@StudentFeedbacksearchTerm" Change="@(args => StudentFeedbackFilterChanged())" />
+    </div>
+</div>
+
+<RadzenDataGrid Data="@StudentFeedback" Count="@StudentFeedbackcount" TItem="StudentFeedback" LoadData="@StudentFeedbackLoadData"
+                ShowPagingSummary="true"
+                AllowSorting="true"
+                AllowPaging="true" PageSize="10"
+                PageSizeOptions="new int[] { 10 , 25, 50 }"
+                AllowFiltering="true" FilterMode="FilterMode.Simple" FilterDelay="2000"
+                AllowColumnResize="true"
+                AllowColumnPicking="true"
+                ColumnWidth="150px">
+
+    <Columns>
+
+        <RadzenDataGridColumn TItem="StudentFeedback" Title="#">
+            <Template Context="item">
+                @((StudentFeedback.IndexOf(item) + 1) + ((StudentFeedbackcurrentPage - 1) * StudentFeedbackpageSize))
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="StudentFeedback" Property="LessonBookings.StartTime" Title="Date" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="StudentFeedback" Property="LessonBookings.CourseBookings.StudentApplicationUsers.FirstName" Title="Student" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="StudentFeedback" Property="LessonBookings.CourseBookings.TutorApplicationUsers.FirstName" Title="Tutor" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="StudentFeedback" Property="LessonBookings.CourseBookings.Courses.Name" Title="Course" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="StudentFeedback" Property="LessonBookings.LessonName" Title="Lesson" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="StudentFeedback" Property="UnderstandingAndEngagement" Title="Understanding And Engagement" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="StudentFeedback" Property="DidTutorExplainTopic" Title="Did Tutor Explain Topic" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="StudentFeedback" Property="DidTutorClearDoubtToday" Title="Did Tutor Clear DoubtToday" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="StudentFeedback" Property="DidTutorClearDoubtPrevious" Title="Did Tutor Clear Doubt Previous" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="StudentFeedback" Property="RateTutorTeaching" Title="Tutor Teaching" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="StudentFeedback" Property="Status" Title="Status" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="StudentFeedback" Title="Action">
+            <Template Context="data">
+
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+
+</RadzenDataGrid>
+
+
+@code {
+
+    [Parameter]
+    public string? StudentId { get; set; }
+
+    private string? UserId;
+    private string? UserRole;
+
+    private List<StudentFeedback> StudentFeedback = new List<StudentFeedback>();
+
+    int StudentFeedbackcount;
+    string StudentFeedbacksearchTerm = "";
+    int StudentFeedbackcurrentPage = 1;
+    int StudentFeedbackpageSize = 10;
+    private LoadDataArgs Lastargs = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+
+        StudentFeedback = context.StudentFeedbacks
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.Courses)
+        .Where(x => x.LessonBookings.CourseBookings.StudentApplicationUsers.Id == StudentId)
+        .Skip(0).Take(10).ToList();
+
+        StudentFeedbackcount = context.StudentFeedbacks.Where(x => x.LessonBookings.CourseBookings.StudentApplicationUsers.Id == StudentId).Count();
+    }
+
+    void StudentFeedbackLoadData(LoadDataArgs args)
+    {
+             Lastargs = args;
+
+        var query = context.StudentFeedbacks
+              .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.Courses)
+        .Where(x => x.LessonBookings.CourseBookings.StudentApplicationUsers.Id == StudentId)
+        .AsQueryable();
+
+        if (!string.IsNullOrEmpty(StudentFeedbacksearchTerm))
+        {
+
+            // query = query.Where(p => p.Name.Contains(StudentFeedbacksearchTerm));
+        }
+
+        if (!string.IsNullOrEmpty(args.Filter))
+        {
+
+            query = query.Where(args.Filter);
+        }
+
+        if (!string.IsNullOrEmpty(args.OrderBy))
+        {
+            query = query.OrderBy(args.OrderBy);
+        }
+
+        StudentFeedbackcount = query.Count();
+
+        int skip = args.Skip ?? 0;
+        int top = args.Top ?? 10;
+        StudentFeedbackcurrentPage = (skip / top) + 1;
+        StudentFeedbackpageSize = top;
+
+        StudentFeedback = query.Skip(skip).Take(top).ToList();
+    }
+
+
+    void StudentFeedbackFilterChanged()
+    {
+        StudentFeedbackLoadData(new LoadDataArgs());
+    }
+}

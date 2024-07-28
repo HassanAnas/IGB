@@ -1,0 +1,153 @@
+﻿@page "/CurriculumCreate/{Id?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject IJSRuntime JSRuntime
+
+@attribute [Authorize(Roles = "Admin")]
+
+<h3>@(Id != null ? "Curriculum Edit" : "Curriculum Create")</h3>
+
+@if (Id != null)
+{
+    <EditForm Model="@Curriculum" OnValidSubmit="Edit" OnInvalidSubmit="@HandleInvalidSubmit">
+        <FluentValidationValidator/>
+        
+
+        <div class="form-group">
+            <label>Curriculum Name:</label>
+            <InputText @bind-Value="Curriculum.Name" class="form-control" />
+            <ValidationMessage For="@(() => Curriculum.Name)" />
+          
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+}
+else
+{
+    <EditForm Model="@Curriculum" OnValidSubmit="Create" OnInvalidSubmit="@HandleInvalidSubmit">
+        <FluentValidationValidator/>
+      
+
+        <div class="form-group">
+
+            <label>Curriculum Name:</label>
+            <InputText @bind-Value="Curriculum.Name" class="form-control" />
+            <ValidationMessage For="@(() => Curriculum.Name)" />
+
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+}
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <button class="btn btn-secondary" @onclick="GoBackToIndex">Back</button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Id { get; set; }
+
+    private Curriculum? Curriculum { get; set; } = new Curriculum();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id != null)
+        {
+            Curriculum = context.Curriculums.Find(Convert.ToInt64(Id));
+        }
+        else
+        {
+            Curriculum = new Curriculum();
+        }
+        Load();
+    }
+    private void Load()
+    {
+        try
+        {
+            if (Id != null)
+            {
+                Curriculum = context.Curriculums.Find(Convert.ToInt64(Id));
+            }
+            else
+            {
+                Curriculum = new Curriculum();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here, such as logging or displaying an error message
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+
+
+    private void Create()
+    {
+        var validator = new Curriculum.CurriculumValidator();
+        var validationResult = validator.Validate(Curriculum);
+
+        if (validationResult.IsValid)
+        {
+
+            try
+            {
+                var obj = new Curriculum
+                    {
+                        Name = Curriculum.Name,
+                    };
+                context.Curriculums.Add(obj);
+                context.SaveChanges();
+                Load();
+                NavigationManager.NavigateTo("/CurriculumIndex");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+    private void Edit()
+    {
+        var validator = new Curriculum.CurriculumValidator();
+        var validationResult = validator.Validate(Curriculum);
+
+        if (validationResult.IsValid)
+        {
+
+            try
+            {
+
+                context.SaveChanges();
+                Load();
+                NavigationManager.NavigateTo("/CurriculumIndex");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+    private void GoBackToIndex()
+    {
+        NavigationManager.NavigateTo("/CurriculumIndex");
+    }
+
+    internal async Task HandleInvalidSubmit()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToFirstError");
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+}

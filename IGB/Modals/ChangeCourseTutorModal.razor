@@ -1,0 +1,82 @@
+﻿<ModalHeader>
+    <ModalTitle>Change Course Tutor</ModalTitle>
+
+</ModalHeader>
+<ModalBody MaxHeight="70">
+
+    <EditForm Model="@CourseBooking" OnValidSubmit="Save">
+        <FluentValidationValidator />
+        <div class="form-group">
+
+            <label>Tutor Name:</label>
+            <RadzenDropDown class="form-control" @bind-Value=@CourseBooking.TutorId Data=@TutorsList TextProperty="FirstName" ValueProperty="Id"
+                            FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select A Tutor" />
+
+
+
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+
+</ModalBody>
+<ModalFooter>
+    <Blazorise.Button Color="Color.Success" Clicked="Close">Close</Blazorise.Button>
+</ModalFooter>
+
+@code {
+    [Inject] public IModalService ModalService { get; set; }
+    [Inject] public ApplicationDbContext context { get; set; }
+    [Inject] NavigationManager NavigationManager { get; set; }
+    [Inject] IJSRuntime JSRuntime { get; set; }
+
+    [Parameter]
+    public long? CourseBookingId { get; set; }
+
+    [Parameter]
+    public EventCallback OnTutorChanged { get; set; }
+
+    private CourseBooking? CourseBooking = new CourseBooking();
+    private List<ApplicationUser> TutorsList = new List<ApplicationUser>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        CourseBooking = context.CourseBookings
+      .Include(x => x.Courses)
+     .Include(x => x.StudentApplicationUsers).ThenInclude(x => x.Curriculums)
+     .Include(x => x.StudentApplicationUsers).ThenInclude(x => x.Grades)
+     .Where(x => x.Id == Convert.ToInt64(CourseBookingId))
+     .FirstOrDefault();
+
+        if (CourseBooking != null)
+        {
+            TutorsList = context.ApplicationUsers
+        .Where(x => x.IsTutor == true &&
+                    x.TutorSpecialitys.Any(ts => ts.CurriculumId == CourseBooking.StudentApplicationUsers.CurriculumId) &&
+                    x.TutorSpecialitys.Any(ts => ts.GradeId == CourseBooking.StudentApplicationUsers.GradeId) &&
+                    x.TutorSpecialitys.Any(ts => ts.CourseId == CourseBooking.CourseId))
+        .ToList();
+
+        }
+
+    }
+
+    private void Save()
+    {
+        if (CourseBooking.TutorId != null)
+        {
+            context.SaveChanges();
+            OnTutorChanged.InvokeAsync();
+            Close();
+        }
+        else
+        {
+            JSRuntime.InvokeVoidAsync("alert", "Select A Tutor First");
+        }
+      
+    }
+
+    private void Close()
+    {
+        ModalService.Hide();
+    }
+}

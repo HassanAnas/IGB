@@ -1,0 +1,1354 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Web
+@inject ApplicationDbContext context
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+@inject AllNotificationService AllNotificationService
+@inject TimeConversionService TimeConversionService
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<style>
+    .notification-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .notification-icon {
+        font-size: 2rem; /* Increase the icon size */
+        cursor: pointer;
+        position: relative;
+    }
+
+    .notification-input {
+        position: absolute;
+        top: -5px; /* Adjust as needed */
+        left: -5px; /* Adjust as needed */
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        font-size: 0.75rem;
+        text-align: center;
+        border: none;
+        background-color: red;
+        color: white;
+        border-radius: 50%;
+        pointer-events: none; /* Prevent interaction */
+    }
+
+    .notification-panel {
+        position: absolute;
+        top: 2.5rem; /* Position below the icon */
+        right: 0;
+        width: 300px; /* Set the width of the notification panel */
+        height: 400px; /* Set the height of the notification panel */
+        background-color: white;
+        border: 1px solid #ccc;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        padding: 1rem;
+        z-index: 1000;
+        overflow-y: auto; /* Add scroll if content overflows */
+    }
+
+</style>
+
+
+<Bar Breakpoint="Blazorise.Breakpoint.Desktop"
+     Background="Background.Light"
+     ThemeContrast="ThemeContrast.Light">
+    <BarBrand>
+        IGB Online Teaching Platform
+    </BarBrand>
+
+    <BarMenu>
+        @if (UserId == null || UserRole == null)
+        {
+                <BarStart>
+
+                    <BarItem>
+                        <BarLink To="Home">Home</BarLink>
+                    </BarItem>
+
+
+                </BarStart>
+        }
+        else
+        {
+            @if (UserRole == "SuperAdmin")
+            {
+                        <BarStart>
+
+                            <BarItem>
+                                <Blazorise.BarDropdown>
+                                    <Blazorise.BarDropdownToggle>Users</Blazorise.BarDropdownToggle>
+                                    <Blazorise.BarDropdownMenu>
+                                        <pre @onclick="AdminIndex"> Admins </pre>
+                                        <Blazorise.BarDropdownDivider />
+                                        <pre @onclick="TutorIndex"> Tutors </pre>
+                                        <Blazorise.BarDropdownDivider />
+                                        <pre @onclick="StudentIndex"> Students </pre>
+                                        <Blazorise.BarDropdownDivider />
+                                        <pre @onclick="GuardianIndex"> Guardians </pre>
+                                    </Blazorise.BarDropdownMenu>
+                                </Blazorise.BarDropdown>
+                            </BarItem>
+
+                            <BarItem>
+                                <pre @onclick="UserCreate"> User Create </pre>
+                            </BarItem>
+
+                        </BarStart>
+            }
+            else if (UserRole == "Admin" && ApplicationUser?.IsActive == true)
+            {
+                        <BarStart>
+                            <BarItem>
+                                <pre @onclick="() => AdminProfile(UserId)"> Profile </pre>
+                            </BarItem>
+                            <BarItem>
+                                <pre @onclick="AdminDashboard"> Dashboard </pre>
+                            </BarItem>
+                            <BarItem>
+                                <pre @onclick="Curriculum"> Curriculums </pre>
+                            </BarItem>
+                            <BarItem>
+                                <pre @onclick="Grade"> Grades </pre>
+                            </BarItem>
+                            <BarItem>
+                                <pre @onclick="Course"> Courses </pre>
+                            </BarItem>
+                            <BarItem>
+                                <pre @onclick="AdminBookedCourse"> Enrolled Courses </pre>
+                            </BarItem>
+
+                            <BarItem>
+                                <Blazorise.BarDropdown>
+                                    <Blazorise.BarDropdownToggle>Users</Blazorise.BarDropdownToggle>
+                                    <Blazorise.BarDropdownMenu>
+                                        <pre @onclick="TutorIndex"> Tutors </pre>
+                                        <Blazorise.BarDropdownDivider />
+                                        <pre @onclick="StudentIndex"> Students </pre>
+                                        <Blazorise.BarDropdownDivider />
+                                        <pre @onclick="GuardianIndex"> Guardians </pre>
+                                    </Blazorise.BarDropdownMenu>
+                                </Blazorise.BarDropdown>
+                            </BarItem>
+
+                            <BarItem>
+                                <div class="notification-container" @onclick:stopPropagation="true">
+                                    <i class="notification-icon fas fa-bell" @onclick="ToggleAdminPanel"></i>
+                            @if (AdminNotificationCount > 0)
+                            {
+                                            <input type="text" @bind="AdminNotificationCount" class="notification-input" />
+                            }
+
+                            @if (AdminPanel)
+                            {
+                                            <div class="notification-panel">
+                                                <a href="AdminAllNotifications">All Notifications</a>
+                                                <br />
+                                    @if (AllAdminNotification.Count > 0)
+                                    {
+                                        @foreach (var item in AllAdminNotification)
+                                        {
+                                                                <Span>@item.Notification</Span>
+
+                                            DateTime Time = TimeConversionService.ConvertFromUtc(item.Time.Value, ApplicationUser.TimeZone);
+
+                                                                <Span>@Time</Span>
+                                                                <p>--------</p>
+                                            @if (@item.NewUserId != null && item.NewUserRole != null)
+                                            {
+                                                                        <a href="UserApprove/@item.NewUserId/@item.Id" @onclick="Load">Approve</a>
+                                                                        <a href="UserReject/@item.NewUserId/@item.Id" @onclick="Load">Reject</a>
+                                                @if (@item.NewUserRole == "Tutor")
+                                                {
+                                                                                <a href="TutorProfile/@item.NewUserId" @onclick="Load">Details</a>
+                                                }
+                                                @if (@item.NewUserRole == "Student")
+                                                {
+                                                                                <a href="StudentProfile/@item.NewUserId" @onclick="Load">Details</a>
+                                                }
+                                                                        <p>-----------------------------</p>
+
+                                            }
+                                            else if (@item.CourseBookingId != null)
+                                            {
+                                                                        <a href="AdminCourseApprove/@item.CourseBookingId/@item.Id" @onclick="Load">Approve</a>
+                                                                        <a href="AdminCourseReject/@item.CourseBookingId/@item.Id" @onclick="Load">Reject</a>
+
+                                                                        <p>-----------------------------</p>
+                                            }
+                                            else if (@item.CourseBookingIdForLesson != null)
+                                            {
+                                                                        <a href="AdminLessonApproveReject/@item.CourseBookingIdForLesson/@item.Id" @onclick="Load">Action</a>
+                                                                        <p>-----------------------------</p>
+                                            }
+                                            else
+                                            {
+                                                                        <button type="button" @onclick="() => ReadByAdmin(item.Id)">Mark As Read</button>
+                                            }
+
+
+
+                                        }
+                                    }
+                                    else
+                                    {
+                                                        <p>No Notifications Available.</p>
+                                    }
+                                            </div>
+                            }
+                                </div>
+                            </BarItem>
+
+
+
+
+                        </BarStart>
+            }
+            else if (UserRole == "Tutor" && ApplicationUser?.IsActive == true)
+            {
+                        <BarStart>
+
+                            <BarItem>
+                                <pre @onclick="() => TutorDashboard(UserId)"> Dashboard </pre>
+                            </BarItem>
+
+                            <BarItem>
+                                <pre @onclick="() => TutorProfile(UserId)"> Profile </pre>
+                            </BarItem>
+
+                            <BarItem>
+                                <pre @onclick="() => TutorAnnouncement(UserId)"> Announcement </pre>
+                            </BarItem>
+
+                            <BarItem>
+                                <Blazorise.BarDropdown>
+                                    <Blazorise.BarDropdownToggle>Feedbacks</Blazorise.BarDropdownToggle>
+                                    <Blazorise.BarDropdownMenu>
+                                        <pre @onclick="() => TutorFeedbacks(UserId)"> Tutor Feedbacks </pre>
+                                        <Blazorise.BarDropdownDivider />
+                                        <pre @onclick="() => TutorStudentFeedbacks(UserId)"> Student Feedbacks </pre>
+                                    </Blazorise.BarDropdownMenu>
+                                </Blazorise.BarDropdown>
+                            </BarItem>
+
+                            <BarItem>
+                                <pre @onclick="() => TutorProgress(UserId)"> Progress Tracker </pre>
+                            </BarItem>
+
+                            <BarItem>
+                        <pre @onclick="() => TutorBookedCourse(UserId)"> Enrolled Course </pre>
+                            </BarItem>
+                            <BarItem>
+                                <pre @onclick="() => TutorSchedule(UserId)"> My Schedule </pre>
+                            </BarItem>
+                            <BarItem>
+                                <div class="notification-container" @onclick:stopPropagation="true">
+                                    <i class="notification-icon fas fa-bell" @onclick="ToggleTutorPanel"></i>
+                            @if (TutorNotificationCount > 0)
+                            {
+                                            <input type="text" @bind="TutorNotificationCount" class="notification-input" />
+                            }
+
+                            @if (TutorPanel)
+                            {
+                                            <div class="notification-panel">
+                                                <a href="TutorAllNotifications/@UserId">All Notifications</a>
+                                                <br />
+                                    @if (AllTutorNotification.Count > 0)
+                                    {
+                                        @foreach (var item in AllTutorNotification)
+                                        {
+                                                                <Span>@item.Notification</Span>
+                                            DateTime Time = TimeConversionService.ConvertFromUtc(item.Time.Value, ApplicationUser.TimeZone);
+
+                                                                <Span>@Time</Span>
+                                                                <p>--------</p>
+                                            @if (@item.CourseBookingId != null)
+                                            {
+                                                                        <a href="TutorCourseApprove/@item.CourseBookingId/@item.Id" @onclick="Load">Approve</a>
+                                                                        <a href="TutorCourseReject/@item.CourseBookingId/@item.Id" @onclick="Load">Reject</a>
+
+                                                                        <p>-----------------------------</p>
+                                            }
+                                            else if (@item.LessonBookingId != null)
+                                            {
+                                                                        <a href="TutorLessonApprove/@item.LessonBookingId/@item.Id" @onclick="Load">Approve</a>
+                                                                        <a href="TutorLessonReject/@item.LessonBookingId/@item.Id" @onclick="Load">Reject</a>
+
+                                                                        <p>-----------------------------</p>
+                                            }
+                                            else
+                                            {
+                                                                        <button type="button" @onclick="() => ReadByTutor(item.Id)">Mark As Read</button>
+                                            }
+
+
+                                        }
+                                    }
+                                    else
+                                    {
+                                                        <p>No Notifications Available.</p>
+                                    }
+                                            </div>
+                            }
+                                </div>
+                            </BarItem>
+
+
+
+                        </BarStart>
+            }
+            else if (UserRole == "Student" && ApplicationUser?.IsActive == true)
+            {
+                        <BarStart>
+
+                            <BarItem>
+                                <pre @onclick="() => StudentDashboard(UserId)"> Dashboard  </pre>
+                            </BarItem>
+
+                            <BarItem>
+                                <pre @onclick="() => StudentProfile(UserId)"> Profile  </pre>
+                            </BarItem>
+
+                            <BarItem>
+                                <pre @onclick="() => StudentAnnouncement(UserId)"> Announcement  </pre>
+                            </BarItem>
+
+                            <BarItem>
+                                <Blazorise.BarDropdown>
+                                    <Blazorise.BarDropdownToggle>Feedbacks</Blazorise.BarDropdownToggle>
+                                    <Blazorise.BarDropdownMenu>
+                                        <pre @onclick="() => StudentFeedbacks(UserId)"> Student Feedbacks  </pre>
+                                        <Blazorise.BarDropdownDivider />
+                                        <pre @onclick="() => StudentTutorFeedbacks(UserId)"> Tutor Feedbacks </pre>
+                                    </Blazorise.BarDropdownMenu>
+                                </Blazorise.BarDropdown>
+                            </BarItem>
+
+                            <BarItem>
+                                <pre @onclick="() => StudentProgress(UserId)"> Progress Tracker  </pre>
+                            </BarItem>
+
+                            <BarItem>
+                                <Blazorise.BarDropdown>
+                                    <Blazorise.BarDropdownToggle>Course</Blazorise.BarDropdownToggle>
+                                    <Blazorise.BarDropdownMenu>
+                                <pre @onclick="() => StudentBookedCourse(UserId)"> Enrolled Courses </pre>
+                                        <Blazorise.BarDropdownDivider />
+                                        <pre @onclick="() => CourseBookingCreate(UserId)"> Enroll A New Course  </pre>
+                                    </Blazorise.BarDropdownMenu>
+                                </Blazorise.BarDropdown>
+                            </BarItem>
+
+                            <BarItem>
+                                <pre @onclick="() => StudentSchedule(UserId)"> My Schedule  </pre>
+                            </BarItem>
+                            <BarItem>
+                                <div class="notification-container" @onclick:stopPropagation="true">
+                                    <i class="notification-icon fas fa-bell" @onclick="ToggleStudentPanel"></i>
+                            @if (StudentNotificationCount > 0)
+                            {
+                                            <input type="text" @bind="StudentNotificationCount" class="notification-input" />
+                            }
+
+                            @if (StudentPanel)
+                            {
+                                            <div class="notification-panel">
+                                                <a href="StudentAllNotifications/@UserId">All Notifications</a>
+                                                <br />
+                                    @if (AllStudentNotification.Count > 0)
+                                    {
+                                        @foreach (var item in AllStudentNotification)
+                                        {
+                                                                <Span>@item.Notification</Span>
+                                            DateTime Time = TimeConversionService.ConvertFromUtc(item.Time.Value, ApplicationUser.TimeZone);
+
+                                                                <Span>@Time</Span>
+                                                                <p>--------</p>
+                                            @if (@item.LessonBookingId != null)
+                                            {
+                                                                        <a href="StudentLessonApprove/@item.LessonBookingId/@item.Id" @onclick="Load">Approve</a>
+                                                                        <a href="StudentLessonReject/@item.LessonBookingId/@item.Id" @onclick="Load">Reject</a>
+
+                                                                        <p>-----------------------------</p>
+                                            }
+                                            else
+                                            {
+                                                                        <button type="button" @onclick="() => ReadByStudent(item.Id)">Mark As Read</button>
+                                            }
+
+
+                                        }
+                                    }
+                                    else
+                                    {
+                                                        <p>No Notifications Available.</p>
+                                    }
+                                            </div>
+                            }
+                                </div>
+                            </BarItem>
+
+
+
+                        </BarStart>
+            }
+            else if (UserRole == "Guardian" && ApplicationUser?.IsActive == true)
+            {
+                        <BarStart>
+
+                            <BarItem>
+                                <pre @onclick="() => StudentDashboard(ApplicationUser.StudentId)"> Dashboard  </pre>
+                            </BarItem>
+
+                            <BarItem>
+                                <pre @onclick="() => StudentProfile(ApplicationUser.StudentId)"> Profile  </pre>
+                            </BarItem>
+
+                            <BarItem>
+                                <pre @onclick="() => StudentAnnouncement(ApplicationUser.StudentId)"> Announcement  </pre>
+                            </BarItem>
+
+                            <BarItem>
+                                <Blazorise.BarDropdown>
+                                    <Blazorise.BarDropdownToggle>Feedbacks</Blazorise.BarDropdownToggle>
+                                    <Blazorise.BarDropdownMenu>
+                                        <pre @onclick="() => StudentFeedbacks(ApplicationUser.StudentId)"> Student Feedbacks  </pre>
+                                        <Blazorise.BarDropdownDivider />
+                                        <pre @onclick="() => StudentTutorFeedbacks(ApplicationUser.StudentId)"> Tutor Feedbacks </pre>
+                                    </Blazorise.BarDropdownMenu>
+                                </Blazorise.BarDropdown>
+                            </BarItem>
+
+                            <BarItem>
+                                <pre @onclick="() => StudentProgress(ApplicationUser.StudentId)"> Progress Tracker  </pre>
+                            </BarItem>
+
+                            <BarItem>
+                        <pre @onclick="() => StudentBookedCourse(ApplicationUser.StudentId)"> Enrolled Courses  </pre>
+                            </BarItem>
+
+                            <BarItem>
+                                <pre @onclick="() => StudentSchedule(ApplicationUser.StudentId)"> My Schedule  </pre>
+                            </BarItem>
+
+                            <BarItem>
+                                <div class="notification-container" @onclick:stopPropagation="true">
+                                    <i class="notification-icon fas fa-bell" @onclick="ToggleStudentPanel"></i>
+                            @if (StudentNotificationCount > 0)
+                            {
+                                            <input type="text" @bind="StudentNotificationCount" class="notification-input" />
+                            }
+
+                            @if (StudentPanel)
+                            {
+                                            <div class="notification-panel">
+                                                <a href="StudentAllNotifications/@ApplicationUser.StudentId">All Notifications</a>
+                                                <br />
+                                    @if (AllStudentNotification.Count > 0)
+                                    {
+                                        @foreach (var item in AllStudentNotification)
+                                        {
+                                                                <Span>@item.Notification</Span>
+                                            DateTime Time = TimeConversionService.ConvertFromUtc(item.Time.Value, ApplicationUser.StudentApplicationUsers.TimeZone);
+                                                                <Span>@Time</Span>
+                                                                <p>--------</p>
+                                        }
+                                    }
+                                    else
+                                    {
+                                                        <p>No Notifications Available.</p>
+                                    }
+                                            </div>
+                            }
+                                </div>
+                            </BarItem>
+
+
+
+                        </BarStart>
+            }
+            else
+            {
+                        <BarStart>
+
+                            <BarItem>
+                                <BarLink To="Home">Home</BarLink>
+                            </BarItem>
+                        </BarStart>
+            }
+        }
+
+        <BarEnd>
+            <LoginDisplay />
+        </BarEnd>
+    </BarMenu>
+</Bar>
+
+@code {
+
+    private string? UserRole;
+    private string? UserId;
+
+    private ApplicationUser? ApplicationUser = new ApplicationUser();
+
+    //--------------------------------
+
+    private bool AdminPanel = false;
+    private bool TutorPanel = false;
+    private bool StudentPanel = false;
+
+    //------------------
+
+    private List<AllNotification> AllAdminNotification = new List<AllNotification>();
+    private List<AllNotification> AllTutorNotification = new List<AllNotification>();
+    private List<AllNotification> AllStudentNotification = new List<AllNotification>();
+
+    //-----------------
+
+    private HubConnection allnotificationhub;
+
+    //----------------
+
+    private long? AdminNotificationCount;
+    private long? TutorNotificationCount;
+    private long? StudentNotificationCount;
+
+    //----------------
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+
+
+            UserId = UserService.LoggedInUserId;
+            UserRole = UserService.LoggedInUserRole;
+
+
+            ApplicationUser = context.ApplicationUsers
+    .Include(x => x.Curriculums)
+    .Include(x => x.Grades)
+    .Include(x => x.StudentApplicationUsers)
+    .Where(x => x.Id == UserId).FirstOrDefault();
+
+            allnotificationhub = new HubConnectionBuilder().WithUrl(Navigation.ToAbsoluteUri("/allnotificationhub")).Build();
+
+
+            allnotificationhub.On<List<AllNotification>>("RefreshAdmin", notifications =>
+    {
+    AllAdminNotification = notifications;
+    AdminNotificationCount = AllNotificationService.GetAdminCount();
+    InvokeAsync(StateHasChanged);
+    });
+
+
+            allnotificationhub.On<List<AllNotification>>("RefreshTutor", notifications =>
+    {
+    AllTutorNotification = notifications;
+    TutorNotificationCount = AllNotificationService.GetTutorCount();
+    InvokeAsync(StateHasChanged);
+    });
+
+
+            allnotificationhub.On<List<AllNotification>>("RefreshStudent", notifications =>
+      {
+      AllStudentNotification = notifications;
+      StudentNotificationCount = AllNotificationService.GetStudentCount();
+      InvokeAsync(StateHasChanged);
+      });
+
+
+            allnotificationhub.StartAsync();
+
+
+
+            //--------------------------
+
+            //         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            //         var user = authState.User;
+
+            //         if (user.Identity.IsAuthenticated)
+            //         {
+            //             UserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+            //             UserRole = user.FindFirstValue(ClaimTypes.Role);
+
+            //             ApplicationUser = context.ApplicationUsers
+            // .Include(x => x.Curriculums)
+            // .Include(x => x.Grades)
+            // .Include(x => x.StudentApplicationUsers)
+            // .Where(x => x.Id == UserId).FirstOrDefault();
+
+            //         }
+
+            Load();
+
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+
+    }
+
+   
+
+    public void Load()
+    {
+        try
+        {
+
+            if (UserRole == "Admin")
+            {
+                AllAdminNotification = AllNotificationService.GetAdmin();
+                AdminNotificationCount = AllNotificationService.GetAdminCount();
+            }
+            else if (UserRole == "Tutor")
+            {
+
+                AllTutorNotification = AllNotificationService.GetTutor();
+
+                TutorNotificationCount = AllNotificationService.GetTutorCount();
+            }
+            else if (UserRole == "Student" || UserRole == "Guardian")
+            {
+                AllStudentNotification = AllNotificationService.GetStudent();
+
+                StudentNotificationCount = AllNotificationService.GetStudentCount();
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+
+
+    //--------------------
+
+    private void ToggleAdminPanel()
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                AdminPanel = !AdminPanel;
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+    private void ToggleTutorPanel()
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                TutorPanel = !TutorPanel;
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+
+    }
+    private void ToggleStudentPanel()
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                StudentPanel = !StudentPanel;
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+    private void ReadByAdmin(long? NotificationId)
+    {
+        try
+        {
+            var data = context.AllNotifications.Where(x => x.Id == NotificationId).FirstOrDefault();
+            data.IsReadByAdmin = true;
+            context.SaveChanges();
+            Load();
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+    private void ReadByTutor(long? NotificationId)
+    {
+        try
+        {
+            var data = context.AllNotifications.Where(x => x.Id == NotificationId).FirstOrDefault();
+            data.IsReadByTutor = true;
+            context.SaveChanges();
+            Load();
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+    private void ReadByStudent(long? NotificationId)
+    {
+        try
+        {
+            var data = context.AllNotifications.Where(x => x.Id == NotificationId).FirstOrDefault();
+            data.IsReadByStudent = true;
+            context.SaveChanges();
+            Load();
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+    //-----------------Navigations
+
+    private void AdminProfile(string? AdminId)
+    {
+        try
+        {
+            NavigationManager.NavigateTo($"/AdminProfile/{AdminId}");
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+    private void AdminDashboard()
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo("/AdminDashboard");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+    private void Curriculum()
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo("/CurriculumIndex");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+    private void Grade()
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo("/GradeIndex");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+    private void Course()
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo("/CourseIndex");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+    private void AdminBookedCourse()
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo("/AdminBookedCourse");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+    private void UserCreate()
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo("/UserCreate");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+    private void AdminIndex()
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo("/AdminsIndex");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+
+    private void TutorIndex()
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo("/TutorIndex");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+    private void StudentIndex()
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo("/StudentIndex");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+    private void GuardianIndex()
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo("/GuardianIndex");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+
+
+    private void TutorProfile(string? TutorId)
+    {
+        try
+        {
+            NavigationManager.NavigateTo($"/TutorProfile/{TutorId}");
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+    private void TutorDashboard(string? TutorId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/TutorDashboard/{TutorId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void TutorAnnouncement(string? TutorId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/TutorAnnouncement/{TutorId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void TutorFeedbacks(string? TutorId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/TutorFeedbacks/{TutorId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void TutorStudentFeedbacks(string? TutorId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/TutorStudentFeedbacks/{TutorId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void TutorProgress(string? TutorId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/TutorProgress/{TutorId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void TutorBookedCourse(string? TutorId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/TutorBookedCourse/{TutorId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void TutorSchedule(string? TutorId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/TutorSchedule/{TutorId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+
+
+
+
+    private void StudentDashboard(string? StudentId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/StudentDashboard/{StudentId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update Your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void StudentProfile(string? StudentId)
+    {
+        try
+        {
+            NavigationManager.NavigateTo($"/StudentProfile/{StudentId}");
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+
+    private void StudentAnnouncement(string? StudentId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/StudentAnnouncement/{StudentId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update Your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void StudentFeedbacks(string? StudentId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/StudentFeedbacks/{StudentId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update Your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+
+    private void StudentTutorFeedbacks(string? StudentId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/StudentTutorFeedbacks/{StudentId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update Your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void StudentProgress(string? StudentId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/StudentProgress/{StudentId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update Your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void StudentBookedCourse(string? StudentId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/StudentBookedCourse/{StudentId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update Your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void CourseBookingCreate(string? StudentId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/CourseBookingCreate/{StudentId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update Your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    private void StudentSchedule(string? StudentId)
+    {
+        try
+        {
+            if (ApplicationUser.IsUpdated == true)
+            {
+                NavigationManager.NavigateTo($"/StudentSchedule/{StudentId}");
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Update Your Profile First");
+            }
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+
+    //--------------
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            allnotificationhub.DisposeAsync();
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+
+    }
+}

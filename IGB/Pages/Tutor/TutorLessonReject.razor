@@ -1,0 +1,71 @@
+﻿@page "/TutorLessonReject/{LessonBookingId?}/{NotificationId?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+
+@if (LessonBooking.IsTutorRejected == true)
+{
+    <h1>Lesson Is Rejected</h1>
+}
+else
+{
+    <h1>Lesson Is Not Rejected</h1>
+}
+
+@code {
+    [Parameter]
+    public string? LessonBookingId { get; set; }
+    [Parameter]
+    public string? NotificationId { get; set; }
+
+    private LessonBooking? LessonBooking = new LessonBooking();
+
+    private AllNotification AllNotification = new AllNotification();
+
+    protected override async Task OnInitializedAsync()
+    {
+        LessonBooking = context.LessonBookings
+         .Include(x => x.CourseBookings).ThenInclude(x=>x.Courses)
+         .Include(x => x.CourseBookings).ThenInclude(x=>x.StudentApplicationUsers)
+         .Include(x => x.CourseBookings).ThenInclude(x=>x.TutorApplicationUsers)
+        .Where(x => x.Id == Convert.ToInt64(LessonBookingId))
+        .FirstOrDefault();
+
+        LessonBooking.Status = "Rejected By Tutor";
+        LessonBooking.IsSubmited = false;
+        LessonBooking.IsAdminApproved = false;
+        LessonBooking.IsAdminRejected = false;
+        LessonBooking.IsTutorApproved = false;
+        LessonBooking.IsTutorRejected = true;
+        LessonBooking.IsStudentApproved = false;
+        LessonBooking.IsStudentRejected = false;
+        LessonBooking.IsBooked = false;
+        context.SaveChanges();
+
+        AllNotification = context.AllNotifications
+        .Include(x => x.CourseBookings).ThenInclude(x => x.Courses)
+        .Where(x => x.Id == Convert.ToInt64(NotificationId)).FirstOrDefault();
+
+        AllNotification.IsReadByTutor = true;
+        context.SaveChanges();
+
+
+        var ForStudent = new AllNotification
+            {
+                Notification = $"{LessonBooking.LessonName} Lesson Booking Request Is Rejected By Tutor",
+                ForStudent = true,
+                ForStudentId = LessonBooking.CourseBookings.StudentApplicationUsers.Id
+            };
+        context.AllNotifications.Add(ForStudent);
+        context.SaveChanges();
+
+        var ForAdmin = new AllNotification
+            {
+                Notification = $"{LessonBooking.LessonName} Lesson Booking Request Is Rejected By Tutor",
+                ForTutor = true,
+            };
+        context.AllNotifications.Add(ForAdmin);
+        context.SaveChanges();
+    }
+}
+

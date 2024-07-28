@@ -1,0 +1,214 @@
+﻿
+
+<ModalHeader>
+    <ModalTitle>Lesson Booking Edit</ModalTitle>
+
+</ModalHeader>
+<ModalBody MaxHeight="70">
+
+    @if (LessonBookingId != null)
+    {
+
+        <label>Student Name:</label>
+        <input type="text " @bind="LessonBooking.CourseBookings.StudentApplicationUsers.FirstName" class="form-control" disabled />
+
+        <label>Student Tag:</label>
+        <input type="text " @bind="LessonBooking.CourseBookings.StudentApplicationUsers.Tag" class="form-control" disabled />
+
+        <label>Tutor Name:</label>
+        <input type="text " @bind="LessonBooking.CourseBookings.TutorApplicationUsers.FirstName" class="form-control" disabled />
+
+        <label>Course Name:</label>
+        <input type="text " @bind="LessonBooking.CourseBookings.Courses.Name" class="form-control" disabled />
+
+        <EditForm Model="@LessonBooking" OnValidSubmit="Save">
+            <FluentValidationValidator />
+            <div class="form-group">
+
+                <label>Lesson Name:</label>
+                <InputText @bind-Value="LessonBooking.LessonName" class="form-control" />
+                @if (LessonBooking.LessonName == null)
+                {
+                    <Span style="color: red;">Lesson Name Is Required</Span>
+                }
+
+                <label>Topic Covered:</label>
+                <InputText @bind-Value="LessonBooking.TopicCovered" class="form-control" />
+
+                @{
+                    FirstSlot = TimeConversionService.ConvertFromUtc(LessonBooking.FirstTimeSlot.Value, ApplicationUser.TimeZone);
+                    SecondSlot = TimeConversionService.ConvertFromUtc(LessonBooking.SecondTimeSlot.Value, ApplicationUser.TimeZone);
+                    ThirdSlot = TimeConversionService.ConvertFromUtc(LessonBooking.ThirdTimeSlot.Value, ApplicationUser.TimeZone);
+                }
+
+                <label>First Time Slot:</label>
+                <input type="datetime-local" @bind="FirstSlot" class="form-control" />
+                @if (FirstSlot == null)
+                {
+                    <Span style="color: red;">First Time Slot Is Required</Span>
+                }
+
+                @if (FirstSlot == SecondSlot || ThirdSlot == FirstSlot)
+                {
+                    <Span style="color: red;">First Time Slot Should Be Different</Span>
+                }
+                @if (FirstSlot < DateTime.Now)
+                {
+                    <Span style="color: red;">First Time Slot Should Be Greater Than Current Date</Span>
+                }
+
+
+                <label>Second Time Slot:</label>
+                <input type="datetime-local" @bind="SecondSlot" class="form-control" />
+
+                @if (SecondSlot == null)
+                {
+                    <Span style="color: red;">Second Time Slot Is Required</Span>
+                }
+
+                @if (SecondSlot == FirstSlot || SecondSlot == ThirdSlot)
+                {
+                    <Span style="color: red;">Second Time Slot Should Be Different</Span>
+                }
+                @if (SecondSlot < DateTime.Now)
+                {
+                    <Span style="color: red;">Second Time Slot Should Be Greater Than Current Date</Span>
+                }
+
+                <label>Third Time Slot:</label>
+                <input type="datetime-local" @bind="ThirdSlot" class="form-control" />
+
+                @if (ThirdSlot == null)
+                {
+                    <Span style="color: red;">Third Time Slot Is Required</Span>
+                }
+
+                @if (ThirdSlot == FirstSlot || ThirdSlot == SecondSlot)
+                {
+                    <Span style="color: red;">Third Time Slot Should Be Different</Span>
+                }
+                @if (ThirdSlot < DateTime.Now)
+                {
+                    <Span style="color: red;">Third Time Slot Should Be Greater Than Current Date</Span>
+                }
+
+                <label>Duration:</label>
+                <InputNumber @bind-Value="LessonBooking.Duration" class="form-control" Placeholder="In Minutes" />
+                @if (LessonBooking.Duration == null)
+                {
+                    <Span style="color: red;">Duration Is Required</Span>
+                }
+
+                <label>Status:</label>
+            <td><InputText @bind-Value="LessonBooking.Status" class="form-control" disabled />  </td>
+
+
+                @if (UserRole == "Student")
+                {
+                <label>Student Remarks:</label>
+                <InputText @bind-Value="LessonBooking.StudentRemarks" class="form-control" />
+                }
+                @if (UserRole == "Tutor")
+                {
+                <label>Tutor Remarks:</label>
+                <InputText @bind-Value="LessonBooking.TutorRemarks" class="form-control" />
+                }
+                @if (UserRole == "Admin")
+                {
+                <label>Admin Remarks:</label>
+                <InputText @bind-Value="LessonBooking.AdminRemarks" class="form-control" />
+                }
+
+            </div>
+            <button type="submit" class="btn btn-primary">Save</button>
+        </EditForm>
+    }
+</ModalBody>
+<ModalFooter>
+    <Blazorise.Button Color="Color.Success" Clicked="Close">Close</Blazorise.Button>
+</ModalFooter>
+
+@code {
+    [Inject] public IModalService ModalService { get; set; }
+    [Inject] public ApplicationDbContext context { get; set; }
+    [Inject] NavigationManager NavigationManager { get; set; }
+    [Inject] UserService UserService { get; set; }
+    [Inject] TimeConversionService TimeConversionService { get; set; }
+
+    [Parameter]
+    public long? LessonBookingId { get; set; }
+
+    private long? CourseBookingId { get; set; }
+
+    private string? UserId;
+    private string? UserRole;
+
+    private DateTime? FirstSlot;
+    private DateTime? SecondSlot;
+    private DateTime? ThirdSlot;
+
+    private LessonBooking? LessonBooking = new LessonBooking();
+
+    private ApplicationUser? ApplicationUser = new ApplicationUser();
+
+    protected override async Task OnInitializedAsync()
+    {
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+
+        ApplicationUser = context.ApplicationUsers.Find(UserId);
+
+        LessonBooking = context.LessonBookings
+        .Where(x => x.Id == LessonBookingId)
+        .Include(x => x.CourseBookings).ThenInclude(x => x.Courses)
+        .Include(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers).ThenInclude(x => x.StudentApplicationUsers)
+        .Include(x => x.CourseBookings).ThenInclude(x => x.AdminApplicationUsers)
+        .Include(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+        .FirstOrDefault();
+
+        CourseBookingId = LessonBooking.CourseBookingId;
+
+    }
+
+    private void Save()
+    {
+     
+        var notification = context.AllNotifications.Where(x => x.LessonBookingId == LessonBooking.Id || x.CourseBookingIdForLesson == CourseBookingId).ToList();
+        context.AllNotifications.RemoveRange(notification);         
+        context.SaveChanges();
+
+        LessonBooking.FirstTimeSlot = TimeConversionService.ConvertToUtc(FirstSlot.Value, ApplicationUser.TimeZone);
+        LessonBooking.SecondTimeSlot = TimeConversionService.ConvertToUtc(SecondSlot.Value, ApplicationUser.TimeZone);
+        LessonBooking.ThirdTimeSlot = TimeConversionService.ConvertToUtc(ThirdSlot.Value, ApplicationUser.TimeZone);
+
+        LessonBooking.Status = "Pending";
+
+        LessonBooking.IsSubmited = true;
+        LessonBooking.IsAdminApproved = false;
+        LessonBooking.IsAdminRejected = false;
+        LessonBooking.IsTutorApproved = false;
+        LessonBooking.IsTutorRejected = false;
+        LessonBooking.IsStudentApproved = false;
+        LessonBooking.IsStudentRejected = false;
+        LessonBooking.IsBooked = false;
+        LessonBooking.IsDone = false;
+        LessonBooking.IsCancelled = false;
+
+        var obj1 = new AllNotification
+            {
+                CourseBookingIdForLesson = Convert.ToInt64(CourseBookingId),
+                ForAdmin = true,
+                Notification = $"Lessons Booking Of {LessonBooking.CourseBookings.Courses.Name} Course Need To Be Approved"
+            };
+        context.AllNotifications.Add(obj1);
+
+        context.SaveChanges();
+
+        Close();
+    }
+
+    private void Close()
+    {
+        ModalService.Hide();
+    }
+}

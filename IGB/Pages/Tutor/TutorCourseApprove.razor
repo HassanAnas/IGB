@@ -1,0 +1,140 @@
+﻿@page "/TutorCourseApprove/{CourseBookingId?}/{NotificationId?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject UserService UserService
+
+<EditForm Model="@CourseBooking" OnValidSubmit="Approve">
+    <FluentValidationValidator />
+
+    @if (CourseBooking != null)
+    {
+        @if (CourseBooking.StudentApplicationUsers != null)
+        {
+            <label>Student Name:</label>
+            <InputText @bind-Value="CourseBooking.StudentApplicationUsers.FirstName" class="form-control" disabled />
+
+            <label>Student Tag:</label>
+            <InputText @bind-Value="CourseBooking.StudentApplicationUsers.Tag" class="form-control" disabled />
+
+            <label>Curriculum:</label>
+            <InputText @bind-Value="CourseBooking.StudentApplicationUsers.Curriculums.Name" class="form-control" disabled />
+
+            <label>Grade:</label>
+            <InputText @bind-Value="CourseBooking.StudentApplicationUsers.Grades.Name" class="form-control" disabled />
+
+        }
+        @if (CourseBooking.Courses != null)
+        {
+            <label>Course:</label>
+            <InputText @bind-Value="CourseBooking.Courses.Name" class="form-control" disabled />
+        }
+        <label>Tutor Name:</label>
+    <InputText @bind-Value = "CourseBooking.TutorApplicationUsers.FirstName" class="form-control" disabled />
+
+        <label>Student Remarks:</label>
+        <InputText @bind-Value="CourseBooking.StudentRemarks" class="form-control" disabled />
+
+        <label>Admin Remarks:</label>
+        <InputText @bind-Value="CourseBooking.AdminRemarks" class="form-control" disabled />
+
+          <label>Tutor Remarks:</label>
+        <InputText @bind-Value="CourseBooking.TutorRemarks" class="form-control" />
+
+    }
+
+    <button type="submit" class="btn btn-primary">Approve</button>
+</EditForm>
+
+
+@code {
+    [Parameter]
+    public string? CourseBookingId { get; set; }
+     [Parameter]
+    public string? NotificationId { get; set; }
+
+    private CourseBooking? CourseBooking = new CourseBooking();
+    private List<ApplicationUser> TutorsList = new List<ApplicationUser>();
+    private ApplicationUser StudentApplicationUser = new ApplicationUser();
+    private AllNotification AllNotification = new AllNotification();
+
+    private string? UserId;
+    private string? UserRole;
+
+    private ApplicationUser? ApplicationUser = new ApplicationUser();
+
+    protected override async Task OnInitializedAsync()
+    {
+            // UserId =  UserService.GetLoggedInUserId();
+        // UserRole =  UserService.GetLoggedInUserRole();
+
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+
+        ApplicationUser = context.ApplicationUsers.Where(x => x.Id == UserId).FirstOrDefault();
+
+   
+        CourseBooking = context.CourseBookings
+        .Include(x=>x.Courses)
+        .Include(x => x.StudentApplicationUsers).ThenInclude(x => x.Curriculums)
+        .Include(x => x.StudentApplicationUsers).ThenInclude(x => x.Grades)
+        .Include(x => x.TutorApplicationUsers)
+        .Include(x => x.LessonBookings)
+        .Where(x => x.Id == Convert.ToInt64(CourseBookingId))
+        .FirstOrDefault();
+
+        if (CourseBooking != null)
+        {
+            TutorsList = context.ApplicationUsers
+        .Where(x => x.IsTutor == true &&
+                    x.TutorSpecialitys.Any(ts => ts.CurriculumId == CourseBooking.StudentApplicationUsers.CurriculumId) &&
+                    x.TutorSpecialitys.Any(ts => ts.GradeId == CourseBooking.StudentApplicationUsers.GradeId) &&
+                    x.TutorSpecialitys.Any(ts => ts.CourseId == CourseBooking.CourseId))
+        .ToList();
+
+            StudentApplicationUser = context.ApplicationUsers.Where(x => x.Id == CourseBooking.StudentApplicationUsers.Id).FirstOrDefault();
+
+           AllNotification = context.AllNotifications
+              .Include(x => x.CourseBookings).ThenInclude(x => x.Courses)
+           .Where(x => x.Id == Convert.ToInt64(NotificationId)).FirstOrDefault();
+ 
+    }
+
+    }
+
+    protected void Approve()
+    {
+
+        CourseBooking.Status = "Booked";
+        CourseBooking.IsSubmited = false;
+        CourseBooking.IsAdminApproved = false;
+        CourseBooking.IsAdminRejected = false;
+        CourseBooking.IsTutorApproved = true;
+        CourseBooking.IsTutorRejected = false;
+        CourseBooking.IsBooked = true;
+
+   
+        AllNotification.IsReadByTutor = true;
+        context.SaveChanges();
+
+        var ForStudent = new AllNotification
+            {
+                Notification = $"Your {AllNotification.CourseBookings.Courses.Name} Course Booking Request Is Approved By Tutor",
+                ForStudent = true,
+                ForStudentId = CourseBooking.StudentApplicationUsers.Id
+            };
+        context.AllNotifications.Add(ForStudent);
+        context.SaveChanges();
+
+      var ForAdmin = new AllNotification
+            {
+                Notification = $"{AllNotification.CourseBookings.Courses.Name} Course Booking Request Is Approved By Tutor",
+                ForAdmin = true,
+            };
+        context.AllNotifications.Add(ForAdmin);
+        context.SaveChanges();   
+
+        NavigationManager.NavigateTo($"/TutorBookedCourse/{UserId}");
+    }
+}
+

@@ -1,0 +1,29 @@
+﻿@page "/DisabledButtonExample"
+
+<h3>Disabled Button Example</h3>
+
+<DisabledButton OnClickCallback="OnButtonClick">
+    Click Me
+</DisabledButton>
+
+<DisabledButton OnClickCallback="OnButtonClick2">
+    Click Me
+</DisabledButton>
+
+<h1>@Name</h1>
+<h1>@NName</h1>
+
+@code {
+    private string? Name="";
+    private string? NName="";
+
+    private async Task OnButtonClick()
+    {
+        Name = "Hassan";
+    }
+
+    private async Task OnButtonClick2()
+    {
+        NName = "Hassan";
+    }
+}

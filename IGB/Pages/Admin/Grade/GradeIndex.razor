@@ -1,0 +1,163 @@
+﻿@page "/GradeIndex"
+
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject UserService UserService
+
+@attribute [Authorize(Roles = "Admin")]
+
+
+<h3>Grade Index</h3>
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <button class="btn btn-secondary" @onclick="GoBackToCreate">Create</button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <RadzenTextBox Placeholder="Search..." @bind-Value="@searchTerm" Change="@(args => FilterChanged())" />
+    </div>
+</div>
+
+<RadzenDataGrid Data="@Grade" Count="@count" TItem="Grade" LoadData="@LoadData"
+                ShowPagingSummary="true"
+                AllowSorting="true"
+                AllowPaging="true" PageSize="10"
+                PageSizeOptions="new int[] { 10 , 25, 50 }"
+                AllowFiltering="true" FilterMode="FilterMode.Simple" FilterDelay="2000"
+                AllowColumnResize="true"
+                AllowColumnPicking="true"
+                ColumnWidth="150px">
+
+    <Columns>
+
+        <RadzenDataGridColumn TItem="Grade" Title="Serial No.">
+            <Template Context="item">
+                @((Grade.IndexOf(item) + 1) + ((currentPage - 1) * pageSize))
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="Grade" Property="Name" Title="Grade Name" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="Grade" Title="Action" >
+            <Template Context="data">
+                <RadzenButton Text="Edit" Class="btn btn-primary" Click="@(args => Edit(data.Id))" />
+                <RadzenButton Text="Delete" Class="btn btn-primary" Click="@(args => Delete(data))" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+
+</RadzenDataGrid>
+
+
+
+@code {
+    private List<Grade>? Grade;
+    int count;
+    string searchTerm = "";
+
+            int currentPage = 1;
+    int pageSize = 10;
+
+    private LoadDataArgs Lastargs = null;
+
+    private string? UserId;
+    private string? UserRole;
+
+    private ApplicationUser? ApplicationUser = new ApplicationUser();
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+
+        ApplicationUser = context.ApplicationUsers.Where(x => x.Id == UserId).FirstOrDefault();
+
+        Grade = new List<Grade>();
+        Load();
+    }
+
+    private void Load()
+    {
+
+        count = context.Grades.Count();
+        Grade = context.Grades.Skip(0).Take(10).ToList();
+    }
+
+    void LoadData(LoadDataArgs args)
+    {
+        Lastargs = args;
+
+        var query = context.Grades.AsQueryable();
+
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+
+            query = query.Where(p => p.Name.Contains(searchTerm));
+        }
+
+        if (!string.IsNullOrEmpty(args.Filter))
+        {
+
+            query = query.Where(args.Filter);
+        }
+
+        if (!string.IsNullOrEmpty(args.OrderBy))
+        {
+            query = query.OrderBy(args.OrderBy);
+        }
+
+        count = query.Count();
+
+        int skip = args.Skip ?? 0;
+        int top = args.Top ?? 10;
+
+                  currentPage = (skip / top) + 1;
+        pageSize = top;
+
+        Grade = query.Skip(skip).Take(top).ToList();
+    }
+
+
+    void FilterChanged()
+    {
+        LoadData(new LoadDataArgs());
+    }
+
+
+    private void Edit(long id)
+    {
+        NavigationManager.NavigateTo($"/GradeCreate/{id}");
+    }
+    private void Delete(Grade data)
+    {
+        try
+        {
+            context.Grades.Remove(data);
+            context.SaveChanges();
+            if (Lastargs != null)
+            {
+                LoadData(Lastargs);
+            }
+            else
+            {
+                Load();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception, e.g., show error message to the user
+            Console.WriteLine($"Error deleting main section: {ex.Message}");
+        }
+    }
+
+    private void GoBackToCreate()
+    {
+        NavigationManager.NavigateTo("/GradeCreate");
+    }
+
+
+}

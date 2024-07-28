@@ -1,0 +1,1983 @@
+﻿@page "/TutorProfile/{Id?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject IJSRuntime JSRuntime
+@inject UserService UserService
+@inject UserManager<IdentityUser> UserManager
+@inject TimeZoneService TimeZoneService
+@attribute [Authorize(Roles = "SuperAdmin,Tutor,Admin")]
+@inject IModalService ModalService
+<h3>Tutor Profile</h3>
+
+<RadzenTabs @bind-SelectedIndex="@index">
+    <Tabs>
+
+        <RadzenTabsItem Text="Profile">
+            @if (Id != null)
+            {
+                <EditForm Model="@ApplicationUser" OnValidSubmit="ProfileCreate" OnInvalidSubmit="HandleInvalidSubmit">
+                    <FluentValidationValidator Validator="@TutorProfileValidator" />
+
+                    <div class="form-group">
+
+                         <label>Profile Picture:</label>
+                        <InputFile OnChange="SingleImage" />
+                        <ValidationMessage For="@(() => ApplicationUser.Image)" />
+
+                        @if (!string.IsNullOrEmpty(ImageUrl))
+                        {
+                            <img src="@ImageUrl" width="100" height="100" />
+                        }
+                        <br/>
+                        <label>First Name:</label>
+                        <InputText @bind-Value="ApplicationUser.FirstName" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.FirstName)" />
+
+                        <label>Last Name:</label>
+                        <InputText @bind-Value="ApplicationUser.LastName" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.LastName)" />
+
+                        <label>Email</label>
+                        <input type="email" @bind="ApplicationUser.Email" class="form-control" disabled/>
+                        <ValidationMessage For="@(() => ApplicationUser.Email)" />
+
+                        <label>Use Previous Password</label>
+                        <input type="checkbox" @bind="checkbox" @oninput="OnCheckboxChange" />
+                        <br />
+
+                        @if (checkbox == true)
+                        {
+                            ApplicationUser.PasswordHash = Password;
+                        }
+                        else
+                        {
+
+
+                            @if (!_showPasswordProfile)
+                            {
+
+                                <div class="form-group">
+                                    <label for="password">New Password:</label>
+                                    <input type="password" @bind="ApplicationUser.PasswordHash" class="form-control" />
+                                    <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordProfileVisibility">
+                                        <i class="fa @(_showPasswordProfile ? "fa-eye" : "fa-eye-slash")"></i>
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-group">
+                                    <label for="password">New Password:</label>
+                                    <input type="text" @bind="ApplicationUser.PasswordHash" class="form-control" />
+                                    <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordProfileVisibility">
+                                        <i class="fa @(_showPasswordProfile ? "fa-eye" : "fa-eye-slash")"></i>
+                                    </button>
+                                </div>
+                            }
+                        }
+
+                        <ValidationMessage For="@(() => ApplicationUser.PasswordHash)" />
+
+                        <label>Tutor Type:</label>
+                        <InputSelect @bind-Value="ApplicationUser.EmployeeType" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="FullTime">FullTime</option>
+                            <option value="PartTime">PartTime</option>
+                            <option value="Other">Other</option>
+                        </InputSelect>
+                        @if (ApplicationUser.EmployeeType == "Other")
+                        {
+                            <label>Tutor Other Type:</label>
+                            <InputText @bind-Value="ApplicationUser.OtherEmployeeType" class="form-control" />
+                        }
+                        @if (ApplicationUser.EmployeeType != "Other")
+                        {
+                            ApplicationUser.OtherEmployeeType = null;
+                        }
+                        <ValidationMessage For="@(() => ApplicationUser.EmployeeType)" />
+
+                        <label>Profile Link:</label>
+                        <InputText @bind-Value="ApplicationUser.ProfileLink" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.ProfileLink)" />
+
+                        <label>Date Of Birth:</label>
+                        <InputDate @bind-Value="ApplicationUser.DateOfBirth" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.DateOfBirth)" />
+
+                        <label>Gender:</label>
+                        <InputSelect @bind-Value="ApplicationUser.Gender" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => ApplicationUser.Gender)" />
+
+                        <label>Nationality:</label>
+                        <InputText @bind-Value="ApplicationUser.Nationality" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.Nationality)" />
+
+                        <label>Residing Country:</label>
+                        <InputText @bind-Value="ApplicationUser.ResidingCountry" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.ResidingCountry)" />
+
+                        <label>Time Zone:</label>
+                        <RadzenDropDown class="form-control" @bind-Value=@ApplicationUser.TimeZone Data=@TimeZoneInfo TextProperty="DisplayName" ValueProperty="Id"
+                                        FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Time Zone" />
+
+
+
+                        <label>Local Number:</label>
+                        <InputText @bind-Value="ApplicationUser.LocalNumber" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.LocalNumber)" />
+
+                        <label>Whatsapp Number:</label>
+                        <InputText @bind-Value="ApplicationUser.WhatsappNumber" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.WhatsappNumber)" />
+
+                        <label>Home Address:</label>
+                        <InputText @bind-Value="ApplicationUser.HomeAddress" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.HomeAddress)" />
+
+                       
+
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Save</button>
+
+                </EditForm>
+            }
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Specialities" Disabled=@(First)>
+            @if (ApplicationUser.IsSpecialiitiesUpdated == false)
+            {
+                <EditForm Model="@TutorSpeciality" OnValidSubmit="SpecialityCreate">
+                    <FluentValidationValidator />
+
+                    <div class="form-group">
+                        <h3>Tutor Specialities</h3>
+
+                        <label>Curriculum:</label>
+                        <RadzenDropDown class="form-control" @bind-Value=@tutorSpeciality.CurriculumId Data=@Curriculum TextProperty="Name" ValueProperty="Id"
+                                        FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Curriculum" Change="@(e => CurriculumChange(e))" />
+                        <ValidationMessage For="@(() => tutorSpeciality.CurriculumId)" />
+
+                        <label>Course:</label>
+                        <RadzenDropDown class="form-control" @bind-Value=@tutorSpeciality.CourseId Data=@Course TextProperty="Name" ValueProperty="Id"
+                                        FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Course" Change="@(e => CourseChange(e))" />
+                        <ValidationMessage For="@(() => tutorSpeciality.CourseId)" />
+
+                        <label>Grade:</label>
+                        <RadzenDropDown class="form-control" @bind-Value=@tutorSpeciality.GradeId Data=@Grade TextProperty="Grades.Name" ValueProperty="Grades.Id"
+                                        FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Grade" />
+                        <ValidationMessage For="@(() => tutorSpeciality.GradeId)" />
+
+                        <label>Expertise Level:</label>
+                        <InputSelect @bind-Value="tutorSpeciality.ExpLevel" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => tutorSpeciality.ExpLevel)" />
+
+                        <button type="button" class="btn btn-primary" @onclick="Add">Add</button>
+
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Curriculum</th>
+                                    <th>Course</th>
+                                    <th>Grade</th>
+                                    <th>Expertise Level</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in TutorSpeciality)
+                                {
+                                    <tr>
+                                        <td>@item.CurriculumName</td>
+                                        <td>@item.CourseName</td>
+                                        <td>@item.GradeName</td>
+                                        <td>@item.ExpLevel</td>
+
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => Remove(item)">Remove</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </EditForm>
+            }
+            @if (ApplicationUser.IsSpecialiitiesUpdated == true)
+            {
+                <EditForm Model="@TutorSpeciality" OnValidSubmit="SpecialityEdit">
+                    <FluentValidationValidator />
+
+                    <div class="form-group">
+                        <h3>Tutor Specialities</h3>
+
+                        <label>Curriculum:</label>
+                        <RadzenDropDown class="form-control" @bind-Value=@tutorSpeciality.CurriculumId Data=@Curriculum TextProperty="Name" ValueProperty="Id"
+                                        FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Curriculum" Change="@(e => CurriculumChange(e))" />
+                        <ValidationMessage For="@(() => tutorSpeciality.CurriculumId)" />
+
+                        <label>Course:</label>
+                        <RadzenDropDown class="form-control" @bind-Value=@tutorSpeciality.CourseId Data=@Course TextProperty="Name" ValueProperty="Id"
+                                        FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Course" Change="@(e => CourseChange(e))" />
+                        <ValidationMessage For="@(() => tutorSpeciality.CourseId)" />
+
+                        <label>Grade:</label>
+                        <RadzenDropDown class="form-control" @bind-Value=@tutorSpeciality.GradeId Data=@Grade TextProperty="Grades.Name" ValueProperty="Grades.Id"
+                                        FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Grade" />
+                        <ValidationMessage For="@(() => tutorSpeciality.GradeId)" />
+
+                        <label>Expertise Level:</label>
+                        <InputSelect @bind-Value="tutorSpeciality.ExpLevel" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => tutorSpeciality.ExpLevel)" />
+
+                        <button type="button" class="btn btn-primary" @onclick="Add">Add</button>
+
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Curriculum</th>
+                                    <th>Course</th>
+                                    <th>Grade</th>
+                                    <th>Expertise Level</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in TutorSpeciality)
+                                {
+                                    <tr>
+                                        <td>@item.CurriculumName</td>
+                                        <td>@item.CourseName</td>
+                                        <td>@item.GradeName</td>
+                                        <td>@item.ExpLevel</td>
+
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => Remove(item)">Remove</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </EditForm>
+            }
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Education" Disabled=@(Second)>
+            @if (ApplicationUser.IsEducationUpdated == false)
+            {
+                <EditForm Model="@TutorEducation" OnValidSubmit="EducationCreate">
+                    <FluentValidationValidator />
+
+                    <div class="form-group">
+
+                        <h3>Tutor Education</h3>
+
+                        <label>University Level:</label>
+                        <InputSelect @bind-Value="tutorEducation.UniversityLevel" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="Phd">Phd</option>
+                            <option value="Master">Master</option>
+                            <option value="Undergraduate">Undergraduate</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => tutorEducation.UniversityLevel)" />
+
+                        <label>Intermediate Level:</label>
+                        <InputSelect @bind-Value="tutorEducation.IntermediateLevel" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="IB">IB</option>
+                            <option value="Cambridge AS/A Level">Cambridge AS/A Level</option>
+                            <option value="Edexcel AS/A Level">Edexcel AS/A Level</option>
+                            <option value="Other">Other</option>
+                        </InputSelect>
+                        @if (tutorEducation.IntermediateLevel == "Other")
+                        {
+                            <label>Other Intermediate Level:</label>
+                            <InputText @bind-Value="tutorEducation.OtherIntermediateLevel" class="form-control" />
+                        }
+                        @if (tutorEducation.IntermediateLevel != "Other")
+                        {
+                            tutorEducation.OtherIntermediateLevel = null;
+                        }
+                        <ValidationMessage For="@(() => tutorEducation.IntermediateLevel)" />
+
+                        <label>Matriculation Level:</label>
+                        <InputSelect @bind-Value="tutorEducation.MatriculationLevel" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="IGCSE">IGCSE</option>
+                            <option value="O level">O level</option>
+                            <option value="MYP-5">MYP-5</option>
+                            <option value="Other">Other</option>
+                        </InputSelect>
+                        @if (tutorEducation.MatriculationLevel == "Other")
+                        {
+                            <label>Other Intermediate Level:</label>
+                            <InputText @bind-Value="tutorEducation.OtherMatriculationLevel" class="form-control" />
+                        }
+                        @if (tutorEducation.MatriculationLevel != "Other")
+                        {
+                            tutorEducation.OtherMatriculationLevel = null;
+                        }
+                        <ValidationMessage For="@(() => tutorEducation.OtherMatriculationLevel)" />
+
+                        <label>Faculty Name:</label>
+                        <InputText @bind-Value="tutorEducation.Faculty" class="form-control" />
+                        <ValidationMessage For="@(() => tutorEducation.Faculty)" />
+
+
+                        <label>Starting Year:</label>
+                        <InputNumber @bind-Value="tutorEducation.StartYear" class="form-control" />
+                        <ValidationMessage For="@(() => tutorEducation.StartYear)" />
+
+                        <label>End Year:</label>
+                        <InputNumber @bind-Value="tutorEducation.EndYear" class="form-control" />
+                        <ValidationMessage For="@(() => tutorEducation.EndYear)" />
+
+                        <button type="button" class="btn btn-primary" @onclick="AddEducation">Add</button>
+
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Univesity Level</th>
+                                    <th>Intermediate Level</th>
+                                    <th>Matriculation Level</th>
+                                    <th>Faculty</th>
+                                    <th>Start Year</th>
+                                    <th>End Year</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in TutorEducation)
+                                {
+                                    <tr>
+                                        <td>@item.UniversityLevel</td>
+
+                                        <td>
+                                            @if (item.IntermediateLevel != "Other")
+                                            {
+                                                @item.IntermediateLevel
+                                            }
+                                            @if (item.IntermediateLevel == "Other")
+                                            {
+                                                @item.OtherIntermediateLevel
+                                            }
+                                        </td>
+
+                                        <td>
+                                            @if (item.MatriculationLevel != "Other")
+                                            {
+                                                @item.MatriculationLevel
+                                            }
+                                            @if (item.MatriculationLevel == "Other")
+                                            {
+                                                @item.OtherMatriculationLevel
+                                            }
+                                        </td>
+
+                                        <td>@item.Faculty</td>
+                                        <td>@item.StartYear</td>
+                                        <td>@item.EndYear</td>
+
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => RemoveEducation(item)">Remove</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </EditForm>
+            }
+            @if (ApplicationUser.IsEducationUpdated == true)
+            {
+                <EditForm Model="@TutorEducation" OnValidSubmit="EducationEdit">
+                    <FluentValidationValidator />
+
+                    <div class="form-group">
+
+                        <h3>Tutor Education</h3>
+
+                        <label>University Level:</label>
+                        <InputSelect @bind-Value="tutorEducation.UniversityLevel" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="Phd">Phd</option>
+                            <option value="Master">Master</option>
+                            <option value="Undergraduate">Undergraduate</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => tutorEducation.UniversityLevel)" />
+
+                        <label>Intermediate Level:</label>
+                        <InputSelect @bind-Value="tutorEducation.IntermediateLevel" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="IB">IB</option>
+                            <option value="Cambridge AS/A Level">Cambridge AS/A Level</option>
+                            <option value="Edexcel AS/A Level">Edexcel AS/A Level</option>
+                            <option value="Other">Other</option>
+                        </InputSelect>
+                        @if (tutorEducation.IntermediateLevel == "Other")
+                        {
+                            <label>Other Intermediate Level:</label>
+                            <InputText @bind-Value="tutorEducation.OtherIntermediateLevel" class="form-control" />
+                        }
+                        @if (tutorEducation.IntermediateLevel != "Other")
+                        {
+                            tutorEducation.OtherIntermediateLevel = null;
+                        }
+                        <ValidationMessage For="@(() => tutorEducation.IntermediateLevel)" />
+
+                        <label>Matriculation Level:</label>
+                        <InputSelect @bind-Value="tutorEducation.MatriculationLevel" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="IGCSE">IGCSE</option>
+                            <option value="O level">O level</option>
+                            <option value="MYP-5">MYP-5</option>
+                            <option value="Other">Other</option>
+                        </InputSelect>
+                        @if (tutorEducation.MatriculationLevel == "Other")
+                        {
+                            <label>Other Intermediate Level:</label>
+                            <InputText @bind-Value="tutorEducation.OtherMatriculationLevel" class="form-control" />
+                        }
+                        @if (tutorEducation.MatriculationLevel != "Other")
+                        {
+                            tutorEducation.OtherMatriculationLevel = null;
+                        }
+                        <ValidationMessage For="@(() => tutorEducation.OtherMatriculationLevel)" />
+
+                        <label>Faculty Name:</label>
+                        <InputText @bind-Value="tutorEducation.Faculty" class="form-control" />
+                        <ValidationMessage For="@(() => tutorEducation.Faculty)" />
+
+
+                        <label>Starting Year:</label>
+                        <InputNumber @bind-Value="tutorEducation.StartYear" class="form-control" />
+                        <ValidationMessage For="@(() => tutorEducation.StartYear)" />
+
+                        <label>End Year:</label>
+                        <InputNumber @bind-Value="tutorEducation.EndYear" class="form-control" />
+                        <ValidationMessage For="@(() => tutorEducation.EndYear)" />
+
+                        <button type="button" class="btn btn-primary" @onclick="AddEducation">Add</button>
+
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Univesity Level</th>
+                                    <th>Intermediate Level</th>
+                                    <th>Matriculation Level</th>
+                                    <th>Faculty</th>
+                                    <th>Start Year</th>
+                                    <th>End Year</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in TutorEducation)
+                                {
+                                    <tr>
+                                        <td>@item.UniversityLevel</td>
+
+                                        <td>
+                                            @if (item.IntermediateLevel != "Other")
+                                            {
+                                                @item.IntermediateLevel
+                                            }
+                                            @if (item.IntermediateLevel == "Other")
+                                            {
+                                                @item.OtherIntermediateLevel
+                                            }
+                                        </td>
+
+                                        <td>
+                                            @if (item.MatriculationLevel != "Other")
+                                            {
+                                                @item.MatriculationLevel
+                                            }
+                                            @if (item.MatriculationLevel == "Other")
+                                            {
+                                                @item.OtherMatriculationLevel
+                                            }
+                                        </td>
+
+                                        <td>@item.Faculty</td>
+                                        <td>@item.StartYear</td>
+                                        <td>@item.EndYear</td>
+
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => RemoveEducation(item)">Remove</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </EditForm>
+            }
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Experience" Disabled=@(Third)>
+            @if (ApplicationUser.IsExperienceUpdated == false)
+            {
+                <EditForm Model="@TutorExperience" OnValidSubmit="ExperienceCreate">
+                    <FluentValidationValidator />
+
+                    <div class="form-group">
+
+                        <h3>Tutor Experience</h3>
+
+                        <label>Institute Name:</label>
+                        <InputText @bind-Value="tutorExperience.InstituteName" class="form-control" />
+                        <ValidationMessage For="@(() => tutorExperience.InstituteName)" />
+
+                        <label>Designation:</label>
+                        <InputText @bind-Value="tutorExperience.Designation" class="form-control" />
+                        <ValidationMessage For="@(() => tutorExperience.Designation)" />
+
+                        <label>Curriculum:</label>
+                        <RadzenDropDown class="form-control" @bind-Value=@tutorExperience.CurriculumId Data=@Curriculum TextProperty="Name" ValueProperty="Id"
+                                        FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Curriculum" Change="@(e => CurriculumChange(e))" />
+                        <ValidationMessage For="@(() => tutorExperience.CurriculumId)" />
+
+                        <label>Course:</label>
+                        <RadzenDropDown class="form-control" @bind-Value=@tutorExperience.CourseId Data=@Course TextProperty="Name" ValueProperty="Id"
+                                        FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Grades" />
+
+
+                        <label>Start Year:</label>
+                        <InputNumber @bind-Value="tutorExperience.StartYear" class="form-control" />
+                        <ValidationMessage For="@(() => tutorExperience.StartYear)" />
+
+                        <label>Current Year:</label>
+                        <input type="checkbox" @bind="tutorExperience.IsEndYear" />
+                        <br />
+                        @if (tutorExperience.IsEndYear == false)
+                        {
+                            <label>End Year:</label>
+                            <InputNumber @bind-Value="tutorExperience.EndYear" class="form-control" />
+                        }
+                        @if (tutorExperience.IsEndYear == true)
+                        {
+                            tutorExperience.EndYear = DateTime.Now.Year;
+                            <label>End Year:</label>
+                            <InputNumber @bind-Value="tutorExperience.EndYear" class="form-control" disabled />
+                        }
+                        <ValidationMessage For="@(() => tutorExperience.EndYear)" />
+
+                        <button type="button" class="btn btn-primary" @onclick="AddExperience">Add</button>
+
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Institute Name</th>
+                                    <th>Designation</th>
+                                    <th>Curriculum</th>
+                                    <th>Course</th>
+                                    <th>Start Year</th>
+                                    <th>End Year</th>
+
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in TutorExperience)
+                                {
+                                    <tr>
+                                        <td>@item.InstituteName</td>
+                                        <td>@item.Designation</td>
+                                        <td>@item.CurriculumName</td>
+                                        <td>@item.CourseName</td>
+                                        <td>@item.StartYear</td>
+                                        <td>@item.EndYear</td>
+
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => RemoveExperience(item)">Remove</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </EditForm>
+            }
+            @if (ApplicationUser.IsExperienceUpdated == true)
+            {
+                <EditForm Model="@TutorExperience" OnValidSubmit="ExperienceEdit">
+                    <FluentValidationValidator />
+
+                    <div class="form-group">
+
+                        <h3>Tutor Experience</h3>
+
+                        <label>Institute Name:</label>
+                        <InputText @bind-Value="tutorExperience.InstituteName" class="form-control" />
+                        <ValidationMessage For="@(() => tutorExperience.InstituteName)" />
+
+                        <label>Designation:</label>
+                        <InputText @bind-Value="tutorExperience.Designation" class="form-control" />
+                        <ValidationMessage For="@(() => tutorExperience.Designation)" />
+
+                        <label>Curriculum:</label>
+                        <RadzenDropDown class="form-control" @bind-Value=@tutorExperience.CurriculumId Data=@Curriculum TextProperty="Name" ValueProperty="Id"
+                                        FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Curriculum" Change="@(e => CurriculumChange(e))" />
+                        <ValidationMessage For="@(() => tutorExperience.CurriculumId)" />
+
+                        <label>Course:</label>
+                        <RadzenDropDown class="form-control" @bind-Value=@tutorExperience.CourseId Data=@Course TextProperty="Name" ValueProperty="Id"
+                                        FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Grades" />
+
+
+                        <label>Start Year:</label>
+                        <InputNumber @bind-Value="tutorExperience.StartYear" class="form-control" />
+                        <ValidationMessage For="@(() => tutorExperience.StartYear)" />
+
+                        <label>Current Year:</label>
+                        <input type="checkbox" @bind="tutorExperience.IsEndYear" />
+                        <br />
+                        @if (tutorExperience.IsEndYear == false)
+                        {
+                            <label>End Year:</label>
+                            <InputNumber @bind-Value="tutorExperience.EndYear" class="form-control" />
+                        }
+                        @if (tutorExperience.IsEndYear == true)
+                        {
+                            tutorExperience.EndYear = DateTime.Now.Year;
+                            <label>End Year:</label>
+                            <InputNumber @bind-Value="tutorExperience.EndYear" class="form-control" disabled />
+                        }
+                        <ValidationMessage For="@(() => tutorExperience.EndYear)" />
+
+                        <button type="button" class="btn btn-primary" @onclick="AddExperience">Add</button>
+
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Institute Name</th>
+                                    <th>Designation</th>
+                                    <th>Curriculum</th>
+                                    <th>Course</th>
+                                    <th>Start Year</th>
+                                    <th>End Year</th>
+
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in TutorExperience)
+                                {
+                                    <tr>
+                                        <td>@item.InstituteName</td>
+                                        <td>@item.Designation</td>
+                                        <td>@item.CurriculumName</td>
+                                        <td>@item.CourseName</td>
+                                        <td>@item.StartYear</td>
+                                        <td>@item.EndYear</td>
+
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => RemoveExperience(item)">Remove</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </EditForm>
+            }
+
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Documents" Disabled=@(Fourth)>
+            @if (ApplicationUser.IsDocumentUpdated == false)
+            {
+                <EditForm Model="@TutorDocument" OnValidSubmit="DocumentCreate">
+                    <FluentValidationValidator />
+
+                    <div class="form-group">
+
+                        <h3>Tutor Document</h3>
+
+
+
+                        <label>Information:</label>
+                        <InputTextArea @bind-Value="tutorDocument.Information" class="form-control" />
+                        <ValidationMessage For="@(() => tutorDocument.Information)" />
+
+                        <label>File Type:</label>
+                        <InputSelect @bind-Value="tutorDocument.FileType" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="CV">CV (pdf)</option>
+                            <option value="Qualification Certificates">Qualification Certificates (pdf)</option>
+                            <option value="Proof Of Home Address">Proof Of Home Address (pdf)</option>
+                            <option value="ID Card Or Passport">ID Card Or Passport (pdf)</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => tutorDocument.FileType)" />
+
+                        <label>File:</label>
+                        <InputFile OnChange="FileChange" class="form-control" />
+                        <ValidationMessage For="@(() => tutorDocument.File)" />
+
+                        <label>File Name:</label>
+                        <InputText @bind-Value="tutorDocument.FileName" class="form-control" />
+                        <ValidationMessage For="@(() => tutorDocument.FileName)" />
+
+                        @if (tutorDocument.File != null)
+                        {
+
+                            Base64Pdf = Convert.ToBase64String(tutorDocument.File);
+
+                            <div style="width: 20%; height: 600px;">
+                                <iframe src="data:application/pdf;base64,@Base64Pdf" width="100%" height="600px"></iframe>
+                            </div>
+                        }
+
+
+                        <button type="button" class="btn btn-primary" @onclick="AddDocument">Add</button>
+
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Information</th>
+                                    <th>File Type</th>
+
+                                    <th>File Name</th>
+
+                                    <th>File</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in TutorDocument)
+                                {
+                                    <tr>
+                                        <td>@item.Information</td>
+                                        <td>@item.FileType</td>
+                                        <td>@item.FileName</td>
+
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => ViewFile(item.Id)">View</button></td>
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => RemoveDocument(item)">Remove</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </EditForm>
+
+            }
+            @if (ApplicationUser.IsDocumentUpdated == true)
+            {
+                <EditForm Model="@TutorDocument" OnValidSubmit="DocumentEdit">
+                    <FluentValidationValidator />
+
+                    <div class="form-group">
+
+                        <h3>Tutor Document</h3>
+
+
+
+                        <label>Information:</label>
+                        <InputTextArea @bind-Value="tutorDocument.Information" class="form-control" />
+                        <ValidationMessage For="@(() => tutorDocument.Information)" />
+
+                        <label>File Type:</label>
+                        <InputSelect @bind-Value="tutorDocument.FileType" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="CV">CV (pdf)</option>
+                            <option value="Qualification Certificates">Qualification Certificates (pdf)</option>
+                            <option value="Proof Of Home Address">Proof Of Home Address (pdf)</option>
+                            <option value="ID Card Or Passport">ID Card Or Passport (pdf)</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => tutorDocument.FileType)" />
+
+                        <label>File:</label>
+                        <InputFile OnChange="FileChange" class="form-control" />
+                        <ValidationMessage For="@(() => tutorDocument.File)" />
+
+                        <label>File Name:</label>
+                        <InputText @bind-Value="tutorDocument.FileName" class="form-control" />
+                        <ValidationMessage For="@(() => tutorDocument.FileName)" />
+
+                        @if (tutorDocument.File != null)
+                        {
+                            Base64Pdf = Convert.ToBase64String(tutorDocument.File);
+                            <div style="width: 20%; height: 600px;">
+                                <iframe src="data:application/pdf;base64,@Base64Pdf" width="100%" height="600px"></iframe>
+                            </div>
+                        }
+
+
+                        <button type="button" class="btn btn-primary" @onclick="AddDocument">Add</button>
+
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Information</th>
+                                    <th>File Type</th>
+
+                                    <th>File Name</th>
+
+                                    <th>File</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in TutorDocument)
+                                {
+                                    <tr>
+                                        <td>@item.Information</td>
+                                        <td>@item.FileType</td>
+                                        <td>@item.FileName</td>
+
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => ViewFile(item.Id)">View</button></td>
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => RemoveDocument(item)">Remove</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </EditForm>
+            }
+        </RadzenTabsItem>
+
+        @if (UserRole == "SuperAdmin" || UserRole == "Admin")
+        {
+
+            <RadzenTabsItem Text="Action" Disabled=@(Admin)>
+
+                @if (Id != null)
+                {
+                    <EditForm Model="@ApplicationUser" OnValidSubmit="Action">
+                        <div class="form-group">
+
+
+
+                            <label>Select A Role:</label>
+                            <select @bind="roleId" class="form-control">
+                                <option value="2c98e431-4a03-4999-807d-d7ac6ebedac9">Tutor</option>
+                                <option value="feb14f16-e7ac-43bf-9bd2-e7de8d1ba71d">Student</option>
+                                <option value="de8dc073-416f-4716-89be-b1c48c9f9de1">Admin</option>
+                            </select>
+
+                            <label>Active/Deactive:</label>
+                            <input type="checkbox" @bind="ApplicationUser.EmailConfirmed" />
+                            <br />
+
+                            <label>Contract:</label>
+                            <InputFile OnChange="ContractChange" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUser.Contract)" />
+
+                            @if (ApplicationUser.Contract != null)
+                            {
+                                Base64Pdfcontract = Convert.ToBase64String(ApplicationUser.Contract);
+                                <div style="width: 20%; height: 600px;">
+                                    <iframe src="data:application/pdf;base64,@Base64Pdfcontract" width="100%" height="600px"></iframe>
+                                </div>
+                            }
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </EditForm>
+                }
+            </RadzenTabsItem>
+        }
+
+    </Tabs>
+</RadzenTabs>
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <button class="btn btn-secondary" @onclick="GoBackToIndex">Back</button>
+    </div>
+</div>
+
+@code
+{
+
+    [Parameter]
+    public string Id { get; set; }
+
+    private string? UserId;
+    private string? UserRole;
+
+    private string? roleId;
+
+    private bool First = true;
+    private bool Second = true;
+    private bool Third = true;
+    private bool Fourth = true;
+    private bool Admin = true;
+
+    private bool checkbox = true;
+    private bool _showPasswordProfile = false;
+    private string? Password;
+
+    private int index;
+
+    private string ImageUrl;
+    private byte[]? buffer;
+
+    private ApplicationUser? ApplicationUser { get; set; } = new ApplicationUser();
+    private IValidator<ApplicationUser> TutorProfileValidator { get; set; }
+
+    private List<TutorSpeciality>? TutorSpeciality { get; set; } = new List<TutorSpeciality>();
+    private TutorSpeciality? tutorSpeciality { get; set; } = new TutorSpeciality();
+
+    private List<TutorEducation>? TutorEducation { get; set; } = new List<TutorEducation>();
+    private TutorEducation? tutorEducation { get; set; } = new TutorEducation();
+
+    private List<TutorExperience>? TutorExperience { get; set; } = new List<TutorExperience>();
+    private TutorExperience? tutorExperience { get; set; } = new TutorExperience();
+
+    private List<TutorDocument>? TutorDocument { get; set; } = new List<TutorDocument>();
+    private TutorDocument? tutorDocument { get; set; } = new TutorDocument();
+
+    private List<Curriculum>? Curriculum { get; set; } = new List<Curriculum>();
+    private List<GradeCourse>? Grade { get; set; } = new List<GradeCourse>();
+    private List<Course>? Course { get; set; } = new List<Course>();
+
+
+
+    private string Base64Pdf { get; set; }
+    private string Base64Pdfcontract { get; set; }
+
+    private List<TimeZoneInfo> TimeZoneInfo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        TutorProfileValidator = new ApplicationUser.TutorProfileValidator();
+
+        try
+        {
+                 // UserId =  UserService.GetLoggedInUserId();
+        // UserRole =  UserService.GetLoggedInUserRole();
+
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+
+            TimeZoneInfo = TimeZoneService.GetAllTimeZones();
+
+            if (Id != null)
+            {
+                roleId = context.ApplicationUserRoles.Where(x => x.UserId == Id).Select(x => x.RoleId).FirstOrDefault();
+                ApplicationUser = context.ApplicationUsers.Find(Id);
+                Password = ApplicationUser.PasswordHash;
+                // ApplicationUser.PasswordHash = "";
+
+                //------------
+                if (ApplicationUser.IsSpecialiitiesUpdated == false)
+                {
+                    TutorSpeciality = new List<TutorSpeciality>();
+                }
+                if (ApplicationUser.IsSpecialiitiesUpdated == true)
+                {
+                    TutorSpeciality = context.TutorSpecialitys.Where(x => x.TutorId == Id).ToList();
+                }
+                //------------
+                if (ApplicationUser.IsEducationUpdated == false)
+                {
+                    TutorEducation = new List<TutorEducation>();
+                }
+                if (ApplicationUser.IsEducationUpdated == true)
+                {
+                    TutorEducation = context.TutorEducations.Where(x => x.TutorId == Id).ToList();
+                }
+                //------------
+                if (ApplicationUser.IsExperienceUpdated == false)
+                {
+                    TutorExperience = new List<TutorExperience>();
+                }
+                if (ApplicationUser.IsExperienceUpdated == true)
+                {
+                    TutorExperience = context.TutorExperiences.Where(x => x.TutorId == Id).ToList();
+                }
+                //------------
+                if (ApplicationUser.IsDocumentUpdated == false)
+                {
+                    TutorDocument = new List<TutorDocument>();
+                }
+                if (ApplicationUser.IsDocumentUpdated == true)
+                {
+                    TutorDocument = context.TutorDocuments.Where(x => x.TutorId == Id).ToList();
+                }
+
+                tutorSpeciality = new TutorSpeciality();
+                tutorEducation = new TutorEducation();
+                tutorExperience = new TutorExperience();
+                tutorDocument = new TutorDocument();
+
+                @if (UserRole == "SuperAdmin" || UserRole == "Admin")
+                {
+                    Admin = false;
+                    index = 5;
+                }
+                if (UserRole == "Tutor")
+                {
+                    if (ApplicationUser.IsProfileUpdated == false || ApplicationUser.IsUpdated == true)
+                    {
+                        index = 0;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true)
+                    {
+                        index = 1;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true && ApplicationUser.IsEducationUpdated == true)
+                    {
+                        index = 2;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true && ApplicationUser.IsEducationUpdated == true && ApplicationUser.IsExperienceUpdated == true)
+                    {
+                        index = 3;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true && ApplicationUser.IsEducationUpdated == true && ApplicationUser.IsExperienceUpdated == true && ApplicationUser.IsDocumentUpdated == true)
+                    {
+                        index = 4;
+                    }
+
+                }
+
+                if (ApplicationUser.IsProfileUpdated == true)
+                {
+                    First = false;
+                }
+                if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true)
+                {
+                    First = false;
+                    Second = false;
+                }
+                if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true && ApplicationUser.IsEducationUpdated == true)
+                {
+                    First = false;
+                    Second = false;
+                    Third = false;
+                }
+                if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true && ApplicationUser.IsEducationUpdated == true && ApplicationUser.IsExperienceUpdated == true)
+                {
+                    First = false;
+                    Second = false;
+                    Third = false;
+                    Fourth = false;
+                }
+
+
+
+                Curriculum = context.Curriculums.ToList();
+
+                if (ApplicationUser?.Image != null)
+                {
+                    ImageUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(ApplicationUser.Image)}";
+                }
+
+                if (ApplicationUser.IsProfileUpdated == true)
+                {
+                    First = false;
+                }
+                if (ApplicationUser.IsFirstGuardianUpdated == true)
+                {
+                    Second = false;
+                }
+
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here, such as logging or displaying an error message
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+
+    }
+
+    private void Load()
+    {
+        TutorProfileValidator = new ApplicationUser.TutorProfileValidator();
+
+        try
+        {
+            // UserId =  UserService.GetLoggedInUserId();
+            // UserRole =  UserService.GetLoggedInUserRole();
+
+            UserId = UserService.LoggedInUserId;
+            UserRole = UserService.LoggedInUserRole;
+
+
+            if (Id != null)
+            {
+                roleId = context.ApplicationUserRoles.Where(x => x.UserId == Id).Select(x => x.RoleId).FirstOrDefault();
+                ApplicationUser = context.ApplicationUsers.Find(Id);
+                Password = ApplicationUser.PasswordHash;
+                // ApplicationUser.PasswordHash = "";
+
+                //------------
+                if (ApplicationUser.IsSpecialiitiesUpdated == false)
+                {
+                    TutorSpeciality = new List<TutorSpeciality>();
+                }
+                if (ApplicationUser.IsSpecialiitiesUpdated == true)
+                {
+                    TutorSpeciality = context.TutorSpecialitys.Where(x => x.TutorId == Id).ToList();
+                }
+                //------------
+                if (ApplicationUser.IsEducationUpdated == false)
+                {
+                    TutorEducation = new List<TutorEducation>();
+                }
+                if (ApplicationUser.IsEducationUpdated == true)
+                {
+                    TutorEducation = context.TutorEducations.Where(x => x.TutorId == Id).ToList();
+                }
+                //------------
+                if (ApplicationUser.IsExperienceUpdated == false)
+                {
+                    TutorExperience = new List<TutorExperience>();
+                }
+                if (ApplicationUser.IsExperienceUpdated == true)
+                {
+                    TutorExperience = context.TutorExperiences.Where(x => x.TutorId == Id).ToList();
+                }
+                //------------
+                if (ApplicationUser.IsDocumentUpdated == false)
+                {
+                    TutorDocument = new List<TutorDocument>();
+                }
+                if (ApplicationUser.IsDocumentUpdated == true)
+                {
+                    TutorDocument = context.TutorDocuments.Where(x => x.TutorId == Id).ToList();
+                }
+
+                tutorSpeciality = new TutorSpeciality();
+                tutorEducation = new TutorEducation();
+                tutorExperience = new TutorExperience();
+                tutorDocument = new TutorDocument();
+
+                @if (UserRole == "SuperAdmin" || UserRole == "Admin")
+                {
+                    Admin = false;
+                    index = 5;
+                }
+                if (UserRole == "Tutor")
+                {
+                    if (ApplicationUser.IsProfileUpdated == false || ApplicationUser.IsUpdated == true)
+                    {
+                        index = 0;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true)
+                    {
+                        index = 1;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true && ApplicationUser.IsEducationUpdated == true)
+                    {
+                        index = 2;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true && ApplicationUser.IsEducationUpdated == true && ApplicationUser.IsExperienceUpdated == true)
+                    {
+                        index = 3;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true && ApplicationUser.IsEducationUpdated == true && ApplicationUser.IsExperienceUpdated == true && ApplicationUser.IsDocumentUpdated == true)
+                    {
+                        index = 4;
+                    }
+
+                }
+
+                if (ApplicationUser.IsProfileUpdated == true)
+                {
+                    First = false;
+                }
+                if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true)
+                {
+                    First = false;
+                    Second = false;
+                }
+                if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true && ApplicationUser.IsEducationUpdated == true)
+                {
+                    First = false;
+                    Second = false;
+                    Third = false;
+                }
+                if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsSpecialiitiesUpdated == true && ApplicationUser.IsEducationUpdated == true && ApplicationUser.IsExperienceUpdated == true)
+                {
+                    First = false;
+                    Second = false;
+                    Third = false;
+                    Fourth = false;
+                }
+
+
+
+                Curriculum = context.Curriculums.ToList();
+
+                if (ApplicationUser?.Image != null)
+                {
+                    ImageUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(ApplicationUser.Image)}";
+                }
+
+                if (ApplicationUser.IsProfileUpdated == true)
+                {
+                    First = false;
+                }
+                if (ApplicationUser.IsFirstGuardianUpdated == true)
+                {
+                    Second = false;
+                }
+
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here, such as logging or displaying an error message
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+
+    private void ProfileCreate()
+    {
+        var validator = new ApplicationUser.TutorProfileValidator();
+        var validationResult = validator.Validate(ApplicationUser);
+
+        if (validationResult.IsValid)
+        {
+            try
+            {
+                if (checkbox == false)
+                {
+                    var hashedPassword = UserManager.PasswordHasher.HashPassword(ApplicationUser, ApplicationUser.PasswordHash);
+                    ApplicationUser.PasswordHash = hashedPassword;
+                }
+
+                ApplicationUser.UserName = ApplicationUser.Email;
+                ApplicationUser.NormalizedUserName = ApplicationUser.Email.ToUpper();
+                ApplicationUser.NormalizedEmail = ApplicationUser.Email.ToUpper();
+
+                ApplicationUser.IsProfileUpdated = true;
+                context.SaveChanges();
+                Load();
+                First = false;
+                index = 1;
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+    private void SpecialityCreate()
+    {
+
+        try
+        {
+            ApplicationUser.IsSpecialiitiesUpdated = true;
+            context.SaveChanges();
+
+            foreach (var item in TutorSpeciality)
+            {
+                var obj = new TutorSpeciality
+                    {
+                        TutorId = Id,
+                        CurriculumId = item.CurriculumId,
+                        CurriculumName = item.CurriculumName,
+                        CourseId = item.CourseId,
+                        CourseName = item.CourseName,
+                        GradeId = item.GradeId,
+                        GradeName = item.GradeName,
+                        ExpLevel = item.ExpLevel,
+                    };
+                context.TutorSpecialitys.Add(obj);
+                context.SaveChanges();
+            }
+            Load();
+            First = false;
+            Second = false;
+            index = 2;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void SpecialityEdit()
+    {
+
+        try
+        {
+            var records = context.TutorSpecialitys.Where(x => x.TutorId == Id).ToList();
+            context.TutorSpecialitys.RemoveRange(records);
+            context.SaveChanges();
+
+            foreach (var item in TutorSpeciality)
+            {
+                var obj = new TutorSpeciality
+                    {
+                        TutorId = Id,
+                        CurriculumId = item.CurriculumId,
+                        CurriculumName = item.CurriculumName,
+                        CourseId = item.CourseId,
+                        CourseName = item.CourseName,
+                        GradeId = item.GradeId,
+                        GradeName = item.GradeName,
+                        ExpLevel = item.ExpLevel,
+                    };
+                context.TutorSpecialitys.Add(obj);
+                context.SaveChanges();
+            }
+            Load();
+            First = false;
+            Second = false;
+            index = 2;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void EducationCreate()
+    {
+
+        try
+        {
+            ApplicationUser.IsEducationUpdated = true;
+            context.SaveChanges();
+
+            foreach (var item in TutorEducation)
+            {
+                var obj = new TutorEducation
+                    {
+                        TutorId = Id,
+                        UniversityLevel = item.UniversityLevel,
+                        IntermediateLevel = item.IntermediateLevel,
+                        OtherIntermediateLevel = item.OtherIntermediateLevel,
+                        MatriculationLevel = item.MatriculationLevel,
+                        OtherMatriculationLevel = item.OtherMatriculationLevel,
+                        Faculty = item.Faculty,
+                        StartYear = item.StartYear,
+                        EndYear = item.EndYear,
+                    };
+                context.TutorEducations.Add(obj);
+                context.SaveChanges();
+            }
+            Load();
+            First = false;
+            Second = false;
+            Third = false;
+            index = 3;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void EducationEdit()
+    {
+
+        try
+        {
+            var records = context.TutorEducations.Where(x => x.TutorId == Id).ToList();
+            context.TutorEducations.RemoveRange(records);
+            context.SaveChanges();
+
+            foreach (var item in TutorEducation)
+            {
+                var obj = new TutorEducation
+                    {
+                        TutorId = Id,
+                        UniversityLevel = item.UniversityLevel,
+                        IntermediateLevel = item.IntermediateLevel,
+                        OtherIntermediateLevel = item.OtherIntermediateLevel,
+                        MatriculationLevel = item.MatriculationLevel,
+                        OtherMatriculationLevel = item.OtherMatriculationLevel,
+                        Faculty = item.Faculty,
+                        StartYear = item.StartYear,
+                        EndYear = item.EndYear,
+                    };
+                context.TutorEducations.Add(obj);
+                context.SaveChanges();
+            }
+            Load();
+            First = false;
+            Second = false;
+            Third = false;
+            index = 3;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void ExperienceCreate()
+    {
+
+        try
+        {
+            ApplicationUser.IsExperienceUpdated = true;
+            context.SaveChanges();
+
+            foreach (var item in TutorExperience)
+            {
+                var obj = new TutorExperience
+                    {
+                        TutorId = Id,
+                        InstituteName = item.InstituteName,
+                        Designation = item.Designation,
+                        CurriculumId = item.CurriculumId,
+                        CurriculumName = item.CurriculumName,
+                        CourseId = item.CourseId,
+                        CourseName = item.CourseName,
+                        StartYear = item.StartYear,
+                        EndYear = item.EndYear,
+                        IsEndYear = item.IsEndYear,
+
+                    };
+                context.TutorExperiences.Add(obj);
+                context.SaveChanges();
+
+            }
+            Load();
+            First = false;
+            Second = false;
+            Third = false;
+            Fourth = false;
+            index = 4;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void ExperienceEdit()
+    {
+
+        try
+        {
+
+            var records = context.TutorExperiences.Where(x => x.TutorId == Id).ToList();
+            context.TutorExperiences.RemoveRange(records);
+            context.SaveChanges();
+
+            foreach (var item in TutorExperience)
+            {
+                var obj = new TutorExperience
+                    {
+                        TutorId = Id,
+                        InstituteName = item.InstituteName,
+                        Designation = item.Designation,
+                        CurriculumId = item.CurriculumId,
+                        CurriculumName = item.CurriculumName,
+                        CourseId = item.CourseId,
+                        CourseName = item.CourseName,
+                        StartYear = item.StartYear,
+                        EndYear = item.EndYear,
+                        IsEndYear = item.IsEndYear,
+                    };
+                context.TutorExperiences.Add(obj);
+                context.SaveChanges();
+
+            }
+            Load();
+            First = false;
+            Second = false;
+            Third = false;
+            Fourth = false;
+            index = 4;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void DocumentCreate()
+    {
+
+        try
+        {
+            ApplicationUser.IsDocumentUpdated = true;
+            ApplicationUser.IsUpdated = true;
+            ApplicationUser.Update = "Updated";
+            context.SaveChanges();
+
+            foreach (var item in TutorDocument)
+            {
+                var obj = new TutorDocument
+                    {
+                        TutorId = Id,
+                        Information = item.Information,
+                        FileType = item.FileType,
+                        FileName = item.FileName,
+                        File = item.File,
+
+                    };
+                context.TutorDocuments.Add(obj);
+                context.SaveChanges();
+
+            }
+            Load();
+
+            if (UserRole == "Tutor")
+            {
+                NavigationManager.NavigateTo("/TutorDashboard");
+            }
+            if (UserRole == "SuperAdmin")
+            {
+                index = 5;
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void DocumentEdit()
+    {
+
+        try
+        {
+
+            var records = context.TutorDocuments.Where(x => x.TutorId == Id).ToList();
+            context.TutorDocuments.RemoveRange(records);
+            context.SaveChanges();
+            foreach (var item in TutorDocument)
+            {
+                var obj = new TutorDocument
+                    {
+                        TutorId = Id,
+                        Information = item.Information,
+                        FileType = item.FileType,
+                        FileName = item.FileName,
+                        File = item.File,
+                    };
+                context.TutorDocuments.Add(obj);
+                context.SaveChanges();
+
+            }
+            Load();
+
+            if (UserRole == "Tutor")
+            {
+                NavigationManager.NavigateTo("/TutorDashboard");
+            }
+            if (UserRole == "SuperAdmin")
+            {
+                index = 5;
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void Action()
+    {
+
+        try
+        {
+
+            var record = context.ApplicationUserRoles.Where(x => x.UserId == Id).FirstOrDefault();
+            context.ApplicationUserRoles.Remove(record);
+
+            string? RoleName = "";
+            if (roleId == "de8dc073-416f-4716-89be-b1c48c9f9de1")
+            {
+                RoleName = "Admin";
+                ApplicationUser.IsAdmin = true;
+                ApplicationUser.IsTutor = false;
+                ApplicationUser.IsStudent = false;
+
+            }
+            else if (roleId == "2c98e431-4a03-4999-807d-d7ac6ebedac9")
+            {
+                RoleName = "Tutor";
+                ApplicationUser.IsAdmin = false;
+                ApplicationUser.IsTutor = true;
+                ApplicationUser.IsStudent = false;
+            }
+            else if (roleId == "feb14f16-e7ac-43bf-9bd2-e7de8d1ba71d")
+            {
+                RoleName = "Student";
+                ApplicationUser.IsAdmin = false;
+                ApplicationUser.IsTutor = false;
+                ApplicationUser.IsStudent = true;
+            }
+            ApplicationUser.RoleName = RoleName;
+            ApplicationUser.IsContracttUpdated = true;
+            context.SaveChanges();
+
+            var obj = new ApplicationUserRole
+                {
+                    UserId = Id,
+                    RoleId = roleId,
+                };
+            context.ApplicationUserRoles.Add(obj);
+            context.SaveChanges();
+            Load();
+
+            NavigationManager.NavigateTo("/UserIndex");
+
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void GoBackToIndex()
+    {
+        if (UserRole == "SuperAdmin")
+        {
+            NavigationManager.NavigateTo("/UserIndex");
+        }
+        if (UserRole == "Student")
+        {
+            NavigationManager.NavigateTo("/TutorDashboard");
+        }
+
+    }
+
+    internal async Task HandleInvalidSubmit()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToFirstError");
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+
+    private async Task SingleImage(InputFileChangeEventArgs e)
+    {
+        // Get the selected file
+        var selectedFiles = e.GetMultipleFiles();
+
+        if (selectedFiles != null && selectedFiles.Count > 0)
+        {
+            // Assuming you only handle the first selected file
+            var selectedFile = selectedFiles[0];
+
+            if (selectedFile.ContentType == "application/pdf")
+            {
+                JSRuntime.InvokeVoidAsync("alert", "File Should Not Be In Pdf Format");
+                throw new InvalidOperationException("The selected file is a PDF.");
+            }
+            // Read the contents of the selected file
+            var stream = selectedFile.OpenReadStream();
+            buffer = new byte[selectedFile.Size];
+            await stream.ReadAsync(buffer);
+
+            // Convert the file content to a Base64 string
+            var base64Image = Convert.ToBase64String(buffer);
+
+            // Set ImageUrl to the data URL
+            ImageUrl = $"data:{selectedFile.ContentType};base64,{base64Image}";
+
+            if (buffer != null && buffer.Length > 0)
+            {
+                ApplicationUser.Image = buffer;
+            }
+        }
+    }
+
+    private void AddEducation()
+    {
+        var validator = new TutorEducation.TutorEducationValidator();
+        var validationResult = validator.Validate(tutorEducation);
+
+        if (validationResult.IsValid)
+        {
+            TutorEducation.Add(tutorEducation);
+            tutorEducation = new TutorEducation();
+        }
+        else
+        {
+            JSRuntime.InvokeVoidAsync("alert", "Fill All Inputs Fields First");
+        }
+    }
+
+    private void RemoveEducation(TutorEducation record)
+    {
+        TutorEducation.Remove(record);
+    }
+    private void AddDocument()
+    {
+        var validator = new TutorDocument.TutorDocumentValidator();
+        var validationResult = validator.Validate(tutorDocument);
+
+        if (validationResult.IsValid)
+        {
+            TutorDocument.Add(tutorDocument);
+            tutorDocument = new TutorDocument();
+        }
+        else
+        {
+            JSRuntime.InvokeVoidAsync("alert", "Fill All Inputs Fields First");
+        }
+    }
+
+    private void ViewFile(long? doc)
+    {
+        if (doc != null && doc.HasValue)
+        {
+            ModalService.Show<ViewTutorDocument>(parameters => parameters.Add(x => x.Id, doc), new ModalInstanceOptions() { UseModalStructure = false });
+        }
+        else
+        {
+
+        }
+
+    }
+
+
+
+    private void RemoveDocument(TutorDocument record)
+    {
+        TutorDocument.Remove(record);
+    }
+    private void Remove(TutorSpeciality record)
+    {
+        TutorSpeciality.Remove(record);
+    }
+
+    private void Add()
+    {
+        var validator = new TutorSpeciality.TutorSpecialityValidator();
+        var validationResult = validator.Validate(tutorSpeciality);
+
+        if (validationResult.IsValid)
+        {
+            var CurriculumName = context.Curriculums.Where(x => x.Id == tutorSpeciality.CurriculumId).Select(x => x.Name).FirstOrDefault();
+            tutorSpeciality.CurriculumName = CurriculumName;
+
+            var CourseName = context.Courses.Where(x => x.Id == tutorSpeciality.CourseId).Select(x => x.Name).FirstOrDefault();
+            tutorSpeciality.CourseName = CourseName;
+
+            var GradeName = context.Grades.Where(x => x.Id == tutorSpeciality.GradeId).Select(x => x.Name).FirstOrDefault();
+            tutorSpeciality.GradeName = GradeName;
+
+            TutorSpeciality.Add(tutorSpeciality);
+            tutorSpeciality = new TutorSpeciality();
+        }
+        else
+        {
+            JSRuntime.InvokeVoidAsync("alert", "Fill All Inputs Fields First");
+        }
+    }
+
+    private void AddExperience()
+    {
+        var validator = new TutorExperience.TutorExperienceValidator();
+        var validationResult = validator.Validate(tutorExperience);
+
+        if (validationResult.IsValid)
+        {
+            var CurriculumName = context.Curriculums.Where(x => x.Id == tutorExperience.CurriculumId).Select(x => x.Name).FirstOrDefault();
+            tutorExperience.CurriculumName = CurriculumName;
+
+            var CourseName = context.Courses.Where(x => x.Id == tutorExperience.CourseId).Select(x => x.Name).FirstOrDefault();
+            tutorExperience.CourseName = CourseName;
+
+            TutorExperience.Add(tutorExperience);
+            tutorExperience = new TutorExperience();
+        }
+        else
+        {
+            JSRuntime.InvokeVoidAsync("alert", "Fill All Inputs Fields First");
+        }
+    }
+
+    private void RemoveExperience(TutorExperience record)
+    {
+        TutorExperience.Remove(record);
+    }
+    private void CurriculumChange(object value)
+    {
+        try
+        {
+            Course = context.Courses.Where(x => x.CurriculumId == Convert.ToInt64(value)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void CourseChange(object value)
+    {
+        try
+        {
+            Grade = context.GradeCourses.Where(x => x.CourseId == Convert.ToInt64(value)).Include(x => x.Grades).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+
+    private string FileUrl;
+    private byte[]? bufferFile;
+
+    private async Task FileChange(InputFileChangeEventArgs e)
+    {
+
+        var selectedFiles = e.GetMultipleFiles();
+
+        if (selectedFiles != null && selectedFiles.Count > 0)
+        {
+
+            var selectedFile = selectedFiles[0];
+            string fileName = selectedFile.Name;
+
+            if (selectedFile.ContentType != "application/pdf")
+            {
+                JSRuntime.InvokeVoidAsync("alert", "File Should Be In Pdf Format");
+                throw new InvalidOperationException("The selected file is not a PDF.");
+            }
+
+            if (selectedFile.Size > 5242880) // 5 MB in bytes
+            {
+                JSRuntime.InvokeVoidAsync("alert", "File Should Be Not Big In Size");
+
+                throw new InvalidOperationException("The selected file size exceeds the limit of 5 MB.");
+            }
+
+            using (var stream = selectedFile.OpenReadStream(maxAllowedSize: 10485760))
+            {
+                bufferFile = new byte[selectedFile.Size];
+                int bytesRead = 0;
+                int offset = 0;
+
+                while ((bytesRead = await stream.ReadAsync(bufferFile, offset, (int)selectedFile.Size - offset)) > 0)
+                {
+                    offset += bytesRead;
+                }
+            }
+
+
+            var base64Image = Convert.ToBase64String(bufferFile);
+
+
+            FileUrl = $"data:{selectedFile.ContentType};base64,{base64Image}";
+
+
+            if (bufferFile != null && bufferFile.Length > 0)
+            {
+                tutorDocument.FileName = fileName;
+                tutorDocument.File = bufferFile;
+            }
+        }
+    }
+
+
+
+
+
+    private string ContractFileUrl;
+    private byte[]? ContractbufferFile;
+
+    private async Task ContractChange(InputFileChangeEventArgs e)
+    {
+
+        var selectedFiles = e.GetMultipleFiles();
+
+        if (selectedFiles != null && selectedFiles.Count > 0)
+        {
+
+            var selectedFile = selectedFiles[0];
+            string fileName = selectedFile.Name;
+
+            if (selectedFile.ContentType != "application/pdf")
+            {
+                JSRuntime.InvokeVoidAsync("alert", "File Should Be In Pdf Format");
+                throw new InvalidOperationException("The selected file is not a PDF.");
+            }
+
+            if (selectedFile.Size > 5242880) // 5 MB in bytes
+            {
+                JSRuntime.InvokeVoidAsync("alert", "File Should Be Not Big In Size");
+
+                throw new InvalidOperationException("The selected file size exceeds the limit of 5 MB.");
+            }
+
+            using (var stream = selectedFile.OpenReadStream(maxAllowedSize: 10485760))
+            {
+                ContractbufferFile = new byte[selectedFile.Size];
+                int bytesRead = 0;
+                int offset = 0;
+
+                while ((bytesRead = await stream.ReadAsync(ContractbufferFile, offset, (int)selectedFile.Size - offset)) > 0)
+                {
+                    offset += bytesRead;
+                }
+            }
+
+
+            var base64Image = Convert.ToBase64String(ContractbufferFile);
+
+
+            ContractFileUrl = $"data:{selectedFile.ContentType};base64,{base64Image}";
+
+
+            if (ContractbufferFile != null && ContractbufferFile.Length > 0)
+            {
+                ApplicationUser.Contract = ContractbufferFile;
+            }
+        }
+    }
+
+    private void OnCheckboxChange(ChangeEventArgs e)
+    {
+        checkbox = (bool)e.Value;
+        if (!checkbox)
+        {
+            ApplicationUser.PasswordHash = string.Empty;
+        }
+    }
+    private void TogglePasswordProfileVisibility()
+    {
+        _showPasswordProfile = !_showPasswordProfile;
+    }
+}

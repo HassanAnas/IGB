@@ -1,0 +1,327 @@
+﻿@page "/StudentLessonFeedback/{LessonBookingId?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject IJSRuntime JSRuntime
+
+@attribute [Authorize(Roles = "Student,Guardian")]
+
+<h3>Student Feedback</h3>
+
+@if (LessonBooking != null)
+{
+    <label>Date:</label>
+    <input type="text" value="@((LessonBooking.StartTime.HasValue ? LessonBooking.StartTime.Value.Date.ToString("yyyy-MM-dd") : ""))" class="form-control" disabled />
+
+    <label>Student Check In:</label>
+    <input type="text" @bind="LessonBooking.StudentComingTime" class="form-control" disabled />
+
+    <label>Student Check Out:</label>
+    <input type="text" @bind="LessonBooking.StudentCheckoutTime" class="form-control" disabled />
+
+    <label>Student Session Time:</label>
+    <input type="text" @bind="LessonBooking.SessionStudentTime" class="form-control" disabled />
+
+    <label>Session Time:</label>
+    <input type="text" @bind="LessonBooking.SessionTime" class="form-control" disabled />
+
+    @if (LessonBooking.CourseBookings.StudentApplicationUsers != null)
+    {
+        <label>Student Name:</label>
+        <input type="text" @bind="LessonBooking.CourseBookings.StudentApplicationUsers.FirstName" class="form-control" disabled />
+
+        <label>Student Name:</label>
+        <input type="text" @bind="LessonBooking.CourseBookings.StudentApplicationUsers.Tag" class="form-control" disabled />
+    }
+    @if (LessonBooking.CourseBookings.TutorApplicationUsers != null)
+    {
+        <label>Tutor Name:</label>
+        <input type="text" @bind="LessonBooking.CourseBookings.TutorApplicationUsers.FirstName" class="form-control" disabled />
+    }
+    @if (LessonBooking.CourseBookings.Courses != null)
+    {
+        <label>Course Name:</label>
+        <input type="text" @bind="LessonBooking.CourseBookings.Courses.Name" class="form-control" disabled />
+    }
+    @if (LessonBooking.LessonName != null)
+    {
+        <label>Lesson Name:</label>
+        <input type="text" @bind="LessonBooking.LessonName" class="form-control" disabled />
+
+        <label>Topic Name:</label>
+        <input type="text" @bind="LessonBooking.TopicCovered" class="form-control" disabled />
+    }
+
+
+}
+@if (LessonBookingId != null)
+{
+    <EditForm Model="@StudentFeedback" OnValidSubmit="Create" OnInvalidSubmit="@HandleInvalidSubmit">
+
+        <div class="form-group">
+
+            <label>How Was Your Class Today With The Teacher ?</label>
+            <InputSelect @bind-Value="StudentFeedback.UnderstandingAndEngagement" class="form-control">
+                <option value="" selected disabled>Select An Option</option>
+                <option value="Excellent">Excellent</option>
+                <option value="Good">Good</option>
+                <option value="Satisfactory">Satisfactory</option>
+                <option value="Unsatisfactory">Unsatisfactory</option>
+            </InputSelect>
+
+            <label>Did he explain today's topic to you very well ?</label>
+            <InputSelect @bind-Value="StudentFeedback.DidTutorExplainTopic" class="form-control">
+                <option value="" selected disabled>Select An Option</option>
+                <option value="Yes,ILikedItAlot">Yes, I Liked It a lot</option>
+                <option value="PartiallyUnderstood">Partially Understood</option>
+                <option value="IStillHaveDoubts">I Still Have Doubts</option>
+                <option value="NotUnderstoodAtAll">Not Understood At All</option>
+            </InputSelect>
+
+            <label>Did he clear all your doubts from today's lecture ?</label>
+            <InputSelect @bind-Value="StudentFeedback.DidTutorClearDoubtToday" class="form-control">
+                <option value="" selected disabled>Select An Option</option>
+                <option value="YesAllCleared">Yes, All Cleared</option>
+                <option value="SomehowCleared">Somehow Cleared</option>
+                <option value="IStillHaveDoubts">I Still Have Doubts</option>
+                <option value="NotSatisfied">Not Satisfied</option>
+            </InputSelect>
+
+            <label>Did he clear all your doubts from your previous homework ?</label>
+            <InputSelect @bind-Value="StudentFeedback.DidTutorClearDoubtPrevious" class="form-control">
+                <option value="" selected disabled>Select An Option</option>
+                <option value="YesAllCleared">Yes, All Cleared</option>
+                <option value="SomehowCleared">Somehow Cleared</option>
+                <option value="IStillHaveDoubts">I Still Have Doubts</option>
+                <option value="NotSatisfied">Not Satisfied</option>
+            </InputSelect>
+
+            <label>How would you rate his teaching approach ?</label>
+            <InputSelect @bind-Value="StudentFeedback.RateTutorTeaching" class="form-control">
+                <option value="" selected disabled>Select An Option</option>
+                <option value="Excellent">Excellent</option>
+                <option value="Good">Good</option>
+                <option value="Satisfactory">Satisfactory</option>
+                <option value="NotSatisfactory">Not Satisfactory</option>
+            </InputSelect>
+
+            <label>Remarks</label>
+            <InputText @bind-Value="StudentFeedback.Remarks" class="form-control" />
+
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public string? LessonBookingId { get; set; }
+
+    private StudentFeedback? StudentFeedback { get; set; } = new StudentFeedback();
+    private LessonBooking? LessonBooking { get; set; } = new LessonBooking();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (LessonBookingId != null)
+        {
+            Load();
+        }
+
+    }
+    private void Load()
+    {
+        try
+        {
+            if (LessonBookingId != null)
+            {
+                StudentFeedback = new StudentFeedback();
+
+                LessonBooking = context.LessonBookings
+         .Include(x => x.CourseBookings).ThenInclude(x => x.Courses)
+         .Include(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers)
+         .Include(x => x.CourseBookings).ThenInclude(x => x.AdminApplicationUsers)
+         .Include(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+         .Where(x => x.Id == Convert.ToInt64(LessonBookingId))
+         .FirstOrDefault();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here, such as logging or displaying an error message
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+
+
+    private void Create()
+    {
+
+        try
+        {
+            if (StudentFeedback.UnderstandingAndEngagement == "Excellent")
+            {
+                StudentFeedback.UnderstandingAndEngagementScore = 0.8;
+            }
+            else if (StudentFeedback.UnderstandingAndEngagement == "Good")
+            {
+                StudentFeedback.UnderstandingAndEngagementScore = 0.5;
+            }
+            else if (StudentFeedback.UnderstandingAndEngagement == "Satisfactory")
+            {
+                StudentFeedback.UnderstandingAndEngagementScore = 0.3;
+            }
+            else if (StudentFeedback.UnderstandingAndEngagement == "Unsatisfactory")
+            {
+                StudentFeedback.UnderstandingAndEngagementScore = 0;
+            }
+
+            if (StudentFeedback.DidTutorExplainTopic == "Yes,ILikedItAlot")
+            {
+                StudentFeedback.DidTutorExplainTopicScore = 0.8;
+            }
+            else if (StudentFeedback.DidTutorExplainTopic == "PartiallyUnderstood")
+            {
+                StudentFeedback.DidTutorExplainTopicScore = 0.5;
+            }
+            else if (StudentFeedback.DidTutorExplainTopic == "IStillHaveDoubts")
+            {
+                StudentFeedback.DidTutorExplainTopicScore = 0.3;
+            }
+            else if (StudentFeedback.DidTutorExplainTopic == "NotUnderstoodAtAll")
+            {
+                StudentFeedback.DidTutorExplainTopicScore = 0;
+            }
+
+            if (StudentFeedback.DidTutorClearDoubtToday == "YesAllCleared")
+            {
+                StudentFeedback.DidTutorClearDoubtTodayScore = 0.8;
+            }
+            else if (StudentFeedback.DidTutorClearDoubtToday == "SomehowCleared")
+            {
+                StudentFeedback.DidTutorClearDoubtTodayScore = 0.5;
+            }
+            else if (StudentFeedback.DidTutorClearDoubtToday == "IStillHaveDoubts")
+            {
+                StudentFeedback.DidTutorClearDoubtTodayScore = 0.3;
+            }
+            else if (StudentFeedback.DidTutorClearDoubtToday == "NotSatisfied")
+            {
+                StudentFeedback.DidTutorClearDoubtTodayScore = 0;
+            }
+
+
+            if (StudentFeedback.DidTutorClearDoubtPrevious == "YesAllCleared")
+            {
+                StudentFeedback.DidTutorClearDoubtPreviousScore = 0.8;
+            }
+            else if (StudentFeedback.DidTutorClearDoubtPrevious == "SomehowCleared")
+            {
+                StudentFeedback.DidTutorClearDoubtPreviousScore = 0.5;
+            }
+            else if (StudentFeedback.DidTutorClearDoubtPrevious == "IStillHaveDoubts")
+            {
+                StudentFeedback.DidTutorClearDoubtPreviousScore = 0.3;
+            }
+            else if (StudentFeedback.DidTutorClearDoubtPrevious == "NotSatisfied")
+            {
+                StudentFeedback.DidTutorClearDoubtPreviousScore = 0;
+            }
+
+
+
+
+            if (StudentFeedback.RateTutorTeaching == "Excellent")
+            {
+                StudentFeedback.RateTutorTeachingScore = 0.8;
+            }
+            else if (StudentFeedback.RateTutorTeaching == "Good")
+            {
+                StudentFeedback.RateTutorTeachingScore = 0.5;
+            }
+            else if (StudentFeedback.RateTutorTeaching == "Satisfactory")
+            {
+                StudentFeedback.RateTutorTeachingScore = 0.3;
+            }
+            else if (StudentFeedback.RateTutorTeaching == "Unsatisfactory")
+            {
+                StudentFeedback.RateTutorTeachingScore = 0;
+            }
+
+            StudentFeedback.FinalScore = StudentFeedback.UnderstandingAndEngagementScore
+            + StudentFeedback.DidTutorExplainTopicScore 
+            + StudentFeedback.DidTutorClearDoubtTodayScore 
+            + StudentFeedback.DidTutorClearDoubtPreviousScore 
+            + StudentFeedback.RateTutorTeachingScore;
+
+            var obj = new StudentFeedback
+                {
+                    LessonBookingId = Convert.ToInt64(LessonBookingId),
+                    UnderstandingAndEngagement = StudentFeedback.UnderstandingAndEngagement,
+                    UnderstandingAndEngagementScore = StudentFeedback.UnderstandingAndEngagementScore,
+                    DidTutorExplainTopic = StudentFeedback.DidTutorExplainTopic,
+                    DidTutorExplainTopicScore = StudentFeedback.DidTutorExplainTopicScore,
+                    DidTutorClearDoubtToday = StudentFeedback.DidTutorClearDoubtToday,
+                    DidTutorClearDoubtTodayScore = StudentFeedback.DidTutorClearDoubtTodayScore,
+                    DidTutorClearDoubtPrevious = StudentFeedback.DidTutorClearDoubtPrevious,
+                    DidTutorClearDoubtPreviousScore = StudentFeedback.DidTutorClearDoubtPreviousScore,
+                    RateTutorTeaching = StudentFeedback.RateTutorTeaching,
+                    RateTutorTeachingScore = StudentFeedback.RateTutorTeachingScore,
+                    FinalScore = StudentFeedback.FinalScore,
+                    Remarks = StudentFeedback.Remarks,
+                    IsPending=true,
+                    Status="Pending"
+                };
+            context.StudentFeedbacks.Add(obj);
+
+            
+            var lesson = context.LessonBookings.Where(x => x.Id == Convert.ToInt64(LessonBookingId)).FirstOrDefault();
+            lesson.TutorScore = StudentFeedback.FinalScore;
+
+            context.SaveChanges();
+
+            
+
+
+
+            Load();
+            NavigationManager.NavigateTo($"/StudentSchedule/{LessonBooking.CourseBookings.StudentApplicationUsers.Id}");
+        }
+
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void Edit()
+    {
+
+        try
+        {
+
+            Load();
+            NavigationManager.NavigateTo($"/StudentSchedule/{LessonBooking.CourseBookings.StudentApplicationUsers.Id}");
+        }
+
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    internal async Task HandleInvalidSubmit()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToFirstError");
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+}
+

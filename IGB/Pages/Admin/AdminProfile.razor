@@ -1,0 +1,840 @@
+﻿@page "/AdminProfile/{Id?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject IJSRuntime JSRuntime
+@inject UserService UserService
+@inject UserManager<IdentityUser> UserManager
+@inject TimeZoneService TimeZoneService
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@inject IModalService ModalService
+
+<h3>Admin Profile</h3>
+
+<RadzenTabs @bind-SelectedIndex="@index">
+    <Tabs>
+
+        <RadzenTabsItem Text="Profile">
+            @if (Id != null)
+            {
+                <EditForm Model="@ApplicationUser" OnValidSubmit="Profile" OnInvalidSubmit="HandleInvalidSubmit">
+                    <FluentValidationValidator Validator="@AdminProfileValidator" />
+
+                    <div class="form-group">
+
+                           <label>Profile Picture:</label>
+                        <InputFile OnChange="SingleImage" />
+                        <ValidationMessage For="@(() => ApplicationUser.Image)" />
+
+                        @if (!string.IsNullOrEmpty(ImageUrl))
+                        {
+                            <img src="@ImageUrl" width="100" height="100" />
+                        }
+                        <br />
+                        <label>First Name:</label>
+                        <InputText @bind-Value="ApplicationUser.FirstName" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.FirstName)" />
+
+                        <label>Last Name:</label>
+                        <InputText @bind-Value="ApplicationUser.LastName" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.LastName)" />
+
+                        <label>Email</label>
+                        <input type="email" @bind="ApplicationUser.Email" class="form-control" disabled />
+                        <ValidationMessage For="@(() => ApplicationUser.Email)" />
+
+                        <label>Use Previous Password</label>
+                        <input type="checkbox" @bind="checkbox" @oninput="OnCheckboxChange" />
+                        <br />
+
+                        @if (checkbox == true)
+                        {
+                            ApplicationUser.PasswordHash = Password;
+                        }
+                        else
+                        {
+
+
+                            @if (!_showPasswordProfile)
+                            {
+
+                                <div class="form-group">
+                                    <label for="password">New Password:</label>
+                                    <input type="password" @bind="ApplicationUser.PasswordHash" class="form-control" />
+                                    <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordProfileVisibility">
+                                        <i class="fa @(_showPasswordProfile ? "fa-eye" : "fa-eye-slash")"></i>
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-group">
+                                    <label for="password">New Password:</label>
+                                    <input type="text" @bind="ApplicationUser.PasswordHash" class="form-control" />
+                                    <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordProfileVisibility">
+                                        <i class="fa @(_showPasswordProfile ? "fa-eye" : "fa-eye-slash")"></i>
+                                    </button>
+                                </div>
+                            }
+                        }
+
+                        <ValidationMessage For="@(() => ApplicationUser.PasswordHash)" />
+
+                        <label>Admin Type:</label>
+                        <InputSelect @bind-Value="ApplicationUser.EmployeeType" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="FullTime">FullTime</option>
+                            <option value="PartTime">PartTime</option>
+                            <option value="Other">Other</option>
+                        </InputSelect>
+                        @if (ApplicationUser.EmployeeType == "Other")
+                        {
+                            <label>Admin Other Type:</label>
+                            <InputText @bind-Value="ApplicationUser.OtherEmployeeType" class="form-control" />
+                        }
+                        @if (ApplicationUser.EmployeeType != "Other")
+                        {
+                            ApplicationUser.OtherEmployeeType = null;
+                        }
+                        <ValidationMessage For="@(() => ApplicationUser.EmployeeType)" />
+
+                        <label>Date Of Birth:</label>
+                        <InputDate @bind-Value="ApplicationUser.DateOfBirth" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.DateOfBirth)" />
+
+                        <label>Gender:</label>
+                        <InputSelect @bind-Value="ApplicationUser.Gender" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => ApplicationUser.Gender)" />
+
+                        <label>Nationality:</label>
+                        <InputText @bind-Value="ApplicationUser.Nationality" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.Nationality)" />
+
+                        <label>Residing Country:</label>
+                        <InputText @bind-Value="ApplicationUser.ResidingCountry" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.ResidingCountry)" />
+
+                        <label>Time Zone:</label>
+                        <RadzenDropDown class="form-control" @bind-Value=@ApplicationUser.TimeZone Data=@TimeZoneInfo TextProperty="DisplayName" ValueProperty="Id"
+                                        FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Time Zone" />
+
+
+
+                        <label>Local Number:</label>
+                        <InputText @bind-Value="ApplicationUser.LocalNumber" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.LocalNumber)" />
+
+                        <label>Whatsapp Number:</label>
+                        <InputText @bind-Value="ApplicationUser.WhatsappNumber" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.WhatsappNumber)" />
+
+                        <label>Home Address:</label>
+                        <InputText @bind-Value="ApplicationUser.HomeAddress" class="form-control" />
+                        <ValidationMessage For="@(() => ApplicationUser.HomeAddress)" />
+
+                     
+
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Save</button>
+
+                </EditForm>
+            }
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Documents" Disabled=@(First)>
+            @if (ApplicationUser.IsDocumentUpdated == false)
+            {
+                <EditForm Model="@AdminDocument" OnValidSubmit="DocumentCreate">
+                    <FluentValidationValidator />
+
+                    <div class="form-group">
+
+                        <h3>Admin Document</h3>
+
+                        <label>File Type:</label>
+                        <InputSelect @bind-Value="adminDocument.FileType" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="CV">CV (pdf)</option>
+                            <option value="Other Document">Other Document (pdf)</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => adminDocument.FileType)" />
+
+                        <label>File:</label>
+                        <InputFile OnChange="FileChange" class="form-control" />
+                        <ValidationMessage For="@(() => adminDocument.File)" />
+
+                        <label>File Name:</label>
+                        <InputText @bind-Value="adminDocument.FileName" class="form-control" />
+                        <ValidationMessage For="@(() => adminDocument.FileName)" />
+
+                        @if (adminDocument.File != null)
+                        {
+
+                            Base64Pdf = Convert.ToBase64String(adminDocument.File);
+
+                            <div style="width: 20%; height: 600px;">
+                                <iframe src="data:application/pdf;base64,@Base64Pdf" width="100%" height="600px"></iframe>
+                            </div>
+                        }
+
+
+                        <button type="button" class="btn btn-primary" @onclick="AddDocument">Add</button>
+
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>File Type</th>
+
+                                    <th>File Name</th>
+
+                                    <th>File</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in AdminDocument)
+                                {
+                                    <tr>
+                                        <td>@item.FileType</td>
+                                        <td>@item.FileName</td>
+
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => ViewFile(item.Id)">View</button></td>
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => RemoveDocument(item)">Remove</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </EditForm>
+
+            }
+            @if (ApplicationUser.IsDocumentUpdated == true)
+            {
+                <EditForm Model="@AdminDocument" OnValidSubmit="DocumentEdit">
+                    <FluentValidationValidator />
+
+                    <div class="form-group">
+
+                        <h3>Admin Document</h3>
+
+                        <label>File Type:</label>
+                        <InputSelect @bind-Value="adminDocument.FileType" class="form-control">
+                            <option value="" disabled selected>Select An Option</option>
+                            <option value="CV">CV (pdf)</option>
+                            <option value="Other Document">Other Document (pdf)</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => adminDocument.FileType)" />
+
+                        <label>File:</label>
+                        <InputFile OnChange="FileChange" class="form-control" />
+                        <ValidationMessage For="@(() => adminDocument.File)" />
+
+                        <label>File Name:</label>
+                        <InputText @bind-Value="adminDocument.FileName" class="form-control" />
+                        <ValidationMessage For="@(() => adminDocument.FileName)" />
+
+                        @if (adminDocument.File != null)
+                        {
+
+                            Base64Pdf = Convert.ToBase64String(adminDocument.File);
+
+                            <div style="width: 20%; height: 600px;">
+                                <iframe src="data:application/pdf;base64,@Base64Pdf" width="100%" height="600px"></iframe>
+                            </div>
+                        }
+
+
+                        <button type="button" class="btn btn-primary" @onclick="AddDocument">Add</button>
+
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>File Type</th>
+
+                                    <th>File Name</th>
+
+                                    <th>File</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in AdminDocument)
+                                {
+                                    <tr>
+                                        <td>@item.FileType</td>
+                                        <td>@item.FileName</td>
+
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => ViewFile(item.Id)">View</button></td>
+                                        <td><button type="button" class="btn btn-danger" @onclick="() => RemoveDocument(item)">Remove</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </EditForm>
+            }
+        </RadzenTabsItem>
+
+        @if (UserRole == "SuperAdmin")
+        {
+            <RadzenTabsItem Text="Action">
+                @if (Id != null)
+                {
+                    <EditForm Model="@ApplicationUser" OnValidSubmit="Action">
+
+                        <div class="form-group">
+
+
+
+                            <label>Select A Role:</label>
+                            <select @bind="roleId" class="form-control">
+                                <option value="2c98e431-4a03-4999-807d-d7ac6ebedac9">Tutor</option>
+                                <option value="feb14f16-e7ac-43bf-9bd2-e7de8d1ba71d">Student</option>
+                                <option value="de8dc073-416f-4716-89be-b1c48c9f9de1">Admin</option>
+                            </select>
+
+                            <label>Active/Deactive:</label>
+                            <input type="checkbox" @bind="ApplicationUser.EmailConfirmed" />
+                            <br />
+
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </EditForm>
+                }
+            </RadzenTabsItem>
+        }
+
+
+
+
+    </Tabs>
+</RadzenTabs>
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <button class="btn btn-secondary" @onclick="GoBackToIndex">Back</button>
+    </div>
+</div>
+
+@code
+{
+
+    [Parameter]
+    public string Id { get; set; }
+
+    private int index;
+    private bool First = true;
+
+    private string? UserId;
+    private string? UserRole;
+
+    private string ImageUrl;
+    private byte[]? buffer;
+
+    private ApplicationUser? ApplicationUser { get; set; } = new ApplicationUser();
+
+    private List<AdminDocument>? AdminDocument { get; set; } = new List<AdminDocument>();
+    private AdminDocument? adminDocument { get; set; } = new AdminDocument();
+
+    private IValidator<ApplicationUser> AdminProfileValidator { get; set; }
+
+    private bool checkbox = true;
+    private bool _showPasswordProfile = false;
+    private string? Password;
+
+    private string? roleId;
+
+    private List<TimeZoneInfo> TimeZoneInfo;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // UserId =  UserService.GetLoggedInUserId();
+            // UserRole =  UserService.GetLoggedInUserRole();
+
+            UserId = UserService.LoggedInUserId;
+            UserRole = UserService.LoggedInUserRole;
+
+            AdminProfileValidator = new ApplicationUser.AdminProfileValidator();
+
+            TimeZoneInfo = TimeZoneService.GetAllTimeZones();
+
+            if (Id != null)
+            {
+                roleId = context.ApplicationUserRoles.Where(x => x.UserId == Id).Select(x => x.RoleId).FirstOrDefault();
+
+                ApplicationUser = context.ApplicationUsers.Find(Id);
+                Password = ApplicationUser.PasswordHash;
+                // ApplicationUser.PasswordHash = "";
+
+                if (ApplicationUser?.Image != null)
+                {
+                    ImageUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(ApplicationUser.Image)}";
+                }
+
+                if (UserRole == "SuperAdmin")
+                {
+                    index = 2;
+                }
+
+                if (ApplicationUser.IsDocumentUpdated == false)
+                {
+                    AdminDocument = new List<AdminDocument>();
+                }
+                if (ApplicationUser.IsDocumentUpdated == true)
+                {
+                    AdminDocument = context.AdminDocuments.Where(x => x.ApplicationUserId == Id).ToList();
+                }
+                adminDocument = new AdminDocument();
+
+                if (UserRole == "Admin")
+                {
+                    if (ApplicationUser.IsProfileUpdated == false)
+                    {
+                        index = 0;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true)
+                    {
+                        index = 1;
+                        First = false;
+                    }
+                    if (ApplicationUser.IsUpdated == true)
+                    {
+                        index = 0;
+                        First = false;
+                    }
+                }
+                if (ApplicationUser.IsProfileUpdated == true)
+                {
+                    First = false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here, such as logging or displaying an error message
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+
+    }
+
+    private void Load()
+    {
+        try
+        {
+            AdminProfileValidator = new ApplicationUser.AdminProfileValidator();
+
+            if (Id != null)
+            {
+                roleId = context.ApplicationUserRoles.Where(x => x.UserId == Id).Select(x => x.RoleId).FirstOrDefault();
+
+                ApplicationUser = context.ApplicationUsers.Find(Id);
+                Password = ApplicationUser.PasswordHash;
+                // ApplicationUser.PasswordHash = "";
+
+                if (ApplicationUser?.Image != null)
+                {
+                    ImageUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(ApplicationUser.Image)}";
+                }
+
+                if (UserRole == "SuperAdmin")
+                {
+                    index = 2;
+                }
+
+                if (ApplicationUser.IsDocumentUpdated == false)
+                {
+                    AdminDocument = new List<AdminDocument>();
+                }
+                if (ApplicationUser.IsDocumentUpdated == true)
+                {
+                    AdminDocument = context.AdminDocuments.Where(x => x.ApplicationUserId == Id).ToList();
+                }
+                adminDocument = new AdminDocument();
+
+                if (UserRole == "Admin")
+                {
+                    if (ApplicationUser.IsProfileUpdated == false)
+                    {
+                        index = 0;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true)
+                    {
+                        index = 1;
+                        First = false;
+                    }
+                    if (ApplicationUser.IsUpdated == true)
+                    {
+                        index = 0;
+                        First = false;
+                    }
+                }
+                if (ApplicationUser.IsProfileUpdated == true)
+                {
+                    First = false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here, such as logging or displaying an error message
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void Profile()
+    {
+        var validator = new ApplicationUser.AdminProfileValidator();
+        var validationResult = validator.Validate(ApplicationUser);
+
+        if (validationResult.IsValid)
+        {
+            try
+            {
+                if (checkbox == false)
+                {
+                    var hashedPassword = UserManager.PasswordHasher.HashPassword(ApplicationUser, ApplicationUser.PasswordHash);
+                    ApplicationUser.PasswordHash = hashedPassword;
+                }
+
+                ApplicationUser.UserName = ApplicationUser.Email;
+                ApplicationUser.NormalizedUserName = ApplicationUser.Email.ToUpper();
+                ApplicationUser.NormalizedEmail = ApplicationUser.Email.ToUpper();
+
+                ApplicationUser.IsProfileUpdated = true;
+                context.SaveChanges();
+                Load();
+                index = 1;
+                First = false;
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+
+
+    private void Action()
+    {
+
+        try
+        {
+            var record = context.ApplicationUserRoles.Where(x => x.UserId == Id).FirstOrDefault();
+            context.ApplicationUserRoles.Remove(record);
+            context.SaveChanges();
+
+            string? RoleName = "";
+            if (roleId == "de8dc073-416f-4716-89be-b1c48c9f9de1")
+            {
+                RoleName = "Admin";
+                ApplicationUser.IsAdmin = true;
+                ApplicationUser.IsTutor = false;
+                ApplicationUser.IsStudent = false;
+
+            }
+            else if (roleId == "2c98e431-4a03-4999-807d-d7ac6ebedac9")
+            {
+                RoleName = "Tutor";
+                ApplicationUser.IsAdmin = false;
+                ApplicationUser.IsTutor = true;
+                ApplicationUser.IsStudent = false;
+            }
+            else if (roleId == "feb14f16-e7ac-43bf-9bd2-e7de8d1ba71d")
+            {
+                RoleName = "Student";
+                ApplicationUser.IsAdmin = false;
+                ApplicationUser.IsTutor = false;
+                ApplicationUser.IsStudent = true;
+            }
+            ApplicationUser.RoleName = RoleName;
+            context.SaveChanges();
+
+            var obj = new ApplicationUserRole
+                {
+                    UserId = Id,
+                    RoleId = roleId,
+                };
+            context.ApplicationUserRoles.Add(obj);
+            context.SaveChanges();
+            Load();
+
+            NavigationManager.NavigateTo("/UserIndex");
+
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void GoBackToIndex()
+    {
+        if (UserRole == "SuperAdmin")
+        {
+            NavigationManager.NavigateTo("/UserIndex");
+        }
+        if (UserRole == "Admin")
+        {
+            NavigationManager.NavigateTo("/AdminDashboard");
+        }
+
+    }
+
+    internal async Task HandleInvalidSubmit()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToFirstError");
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+
+    private async Task SingleImage(InputFileChangeEventArgs e)
+    {
+        // Get the selected file
+        var selectedFiles = e.GetMultipleFiles();
+
+        if (selectedFiles != null && selectedFiles.Count > 0)
+        {
+            // Assuming you only handle the first selected file
+            var selectedFile = selectedFiles[0];
+
+            if (selectedFile.ContentType == "application/pdf")
+            {
+                JSRuntime.InvokeVoidAsync("alert", "File Should Not Be In Pdf Format");
+                throw new InvalidOperationException("The selected file is a PDF.");
+            }
+            // Read the contents of the selected file
+            var stream = selectedFile.OpenReadStream();
+            buffer = new byte[selectedFile.Size];
+            await stream.ReadAsync(buffer);
+
+            // Convert the file content to a Base64 string
+            var base64Image = Convert.ToBase64String(buffer);
+
+            // Set ImageUrl to the data URL
+            ImageUrl = $"data:{selectedFile.ContentType};base64,{base64Image}";
+
+            if (buffer != null && buffer.Length > 0)
+            {
+                ApplicationUser.Image = buffer;
+            }
+        }
+    }
+
+
+
+    private void DocumentCreate()
+    {
+
+        try
+        {
+            ApplicationUser.IsDocumentUpdated = true;
+            ApplicationUser.IsUpdated = true;
+            ApplicationUser.Update = "Updated";
+
+            context.SaveChanges();
+
+            foreach (var item in AdminDocument)
+            {
+                var obj = new AdminDocument
+                    {
+                        ApplicationUserId = Id,
+                        FileType = item.FileType,
+                        FileName = item.FileName,
+                        File = item.File,
+
+                    };
+                context.AdminDocuments.Add(obj);
+                context.SaveChanges();
+
+            }
+            Load();
+
+            if (UserRole == "Admin")
+            {
+                NavigationManager.NavigateTo("/AdminDashboard");
+            }
+            if (UserRole == "SuperAdmin")
+            {
+                index = 2;
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void DocumentEdit()
+    {
+
+        try
+        {
+
+            var records = context.AdminDocuments.Where(x => x.ApplicationUserId == Id).ToList();
+            context.AdminDocuments.RemoveRange(records);
+            context.SaveChanges();
+
+            foreach (var item in AdminDocument)
+            {
+                var obj = new AdminDocument
+                    {
+                        ApplicationUserId = Id,
+                        FileType = item.FileType,
+                        FileName = item.FileName,
+                        File = item.File,
+                    };
+                context.AdminDocuments.Add(obj);
+                context.SaveChanges();
+
+            }
+            Load();
+
+            if (UserRole == "Admin")
+            {
+                NavigationManager.NavigateTo("/AdminDashboard");
+            }
+            if (UserRole == "SuperAdmin")
+            {
+                index = 2;
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+
+    private string FileUrl;
+    private byte[]? bufferFile;
+    private string Base64Pdf { get; set; }
+
+    private async Task FileChange(InputFileChangeEventArgs e)
+    {
+
+        var selectedFiles = e.GetMultipleFiles();
+
+        if (selectedFiles != null && selectedFiles.Count > 0)
+        {
+
+            var selectedFile = selectedFiles[0];
+            string fileName = selectedFile.Name;
+
+            if (selectedFile.ContentType != "application/pdf")
+            {
+                JSRuntime.InvokeVoidAsync("alert", "File Should Be In Pdf Format");
+                throw new InvalidOperationException("The selected file is not a PDF.");
+            }
+
+            if (selectedFile.Size > 5242880) // 5 MB in bytes
+            {
+                JSRuntime.InvokeVoidAsync("alert", "File Should Be Not Big In Size");
+
+                throw new InvalidOperationException("The selected file size exceeds the limit of 5 MB.");
+            }
+
+            using (var stream = selectedFile.OpenReadStream(maxAllowedSize: 10485760))
+            {
+                bufferFile = new byte[selectedFile.Size];
+                int bytesRead = 0;
+                int offset = 0;
+
+                while ((bytesRead = await stream.ReadAsync(bufferFile, offset, (int)selectedFile.Size - offset)) > 0)
+                {
+                    offset += bytesRead;
+                }
+            }
+
+
+            var base64Image = Convert.ToBase64String(bufferFile);
+
+
+            FileUrl = $"data:{selectedFile.ContentType};base64,{base64Image}";
+
+
+            if (bufferFile != null && bufferFile.Length > 0)
+            {
+                adminDocument.FileName = fileName;
+                adminDocument.File = bufferFile;
+            }
+        }
+    }
+
+    private void AddDocument()
+    {
+        var validator = new AdminDocument.AdminDocumenttValidator();
+        var validationResult = validator.Validate(adminDocument);
+
+        if (validationResult.IsValid)
+        {
+            AdminDocument.Add(adminDocument);
+            adminDocument = new AdminDocument();
+        }
+        else
+        {
+            JSRuntime.InvokeVoidAsync("alert", "Fill All Inputs Fields First");
+        }
+    }
+    private void RemoveDocument(AdminDocument record)
+    {
+        AdminDocument.Remove(record);
+    }
+
+    private void ViewFile(long? doc)
+    {
+        if (doc != null && doc.HasValue)
+        {
+            ModalService.Show<ViewAdminDocument>(parameters => parameters.Add(x => x.Id, doc), new ModalInstanceOptions() { UseModalStructure = false });
+        }
+        else
+        {
+            // Handle the case where doc is null or does not have a value
+        }
+    }
+
+    private void OnCheckboxChange(ChangeEventArgs e)
+    {
+        checkbox = (bool)e.Value;
+        if (!checkbox)
+        {
+            ApplicationUser.PasswordHash = string.Empty;
+        }
+    }
+    private void TogglePasswordProfileVisibility()
+    {
+        _showPasswordProfile = !_showPasswordProfile;
+    }
+
+
+
+
+}

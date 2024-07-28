@@ -1,0 +1,1310 @@
+﻿@page "/StudentProfile/{StudentId?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject IJSRuntime JSRuntime
+@inject UserService UserService
+@inject UserManager<IdentityUser> UserManager
+@inject TimeZoneService TimeZoneService
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Student,Guardian")]
+
+<h3>Student Profile</h3>
+
+<RadzenTabs @bind-SelectedIndex="@index">
+    <Tabs>
+
+        @if (StudentId != null)
+        {
+            <RadzenTabsItem Text="Profile">
+
+                @if (UserRole == "Guardian")
+                {
+                    <EditForm Model="@ApplicationUser">
+
+
+                        <div class="form-group">
+
+                            <label>Profile Picture:</label>
+                            @if (!string.IsNullOrEmpty(ImageUrl))
+                            {
+                                <img src="@ImageUrl" width="100" height="100" />
+                            }
+                            <br/>
+
+                            <label>First Name:</label>
+                            <InputText @bind-Value="ApplicationUser.FirstName" class="form-control" disabled />
+
+
+                            <label>Last Name:</label>
+                            <InputText @bind-Value="ApplicationUser.LastName" class="form-control" disabled />
+
+                            <label>School Name:</label>
+                            <InputText @bind-Value="ApplicationUser.SchoolName" class="form-control" disabled />
+
+
+                            <label>Email</label>
+                            <input type="email" @bind="ApplicationUser.Email" class="form-control" disabled />
+
+
+                            <label>Date Of Birth:</label>
+                            <InputDate @bind-Value="ApplicationUser.DateOfBirth" class="form-control" disabled />
+
+                            <label>Gender:</label>
+                            <InputText @bind-Value="ApplicationUser.Gender" class="form-control" disabled />
+
+                            <label>Nationality:</label>
+                            <InputText @bind-Value="ApplicationUser.Nationality" class="form-control" disabled />
+
+                            <label>Residing Country:</label>
+                            <InputText @bind-Value="ApplicationUser.ResidingCountry" class="form-control" disabled />
+
+                            <label>Time Zone:</label>
+                            <InputText @bind-Value="ApplicationUser.TimeZone" class="form-control" disabled />
+
+
+                            <label>Local Number:</label>
+                            <InputText @bind-Value="ApplicationUser.LocalNumber" class="form-control" disabled />
+
+                            <label>Whatsapp Number:</label>
+                            <InputText @bind-Value="ApplicationUser.WhatsappNumber" class="form-control" disabled />
+
+                            <label>Curriculum:</label>
+                            <InputText @bind-Value="ApplicationUser.Curriculums.Name" class="form-control" disabled />
+
+                            <label>Grades:</label>
+                            <InputText @bind-Value="ApplicationUser.Grades.Name" class="form-control" disabled />
+
+                            <label>Home Address:</label>
+                            <InputText @bind-Value="ApplicationUser.HomeAddress" class="form-control" disabled />
+
+
+
+                        </div>
+
+                    </EditForm>
+                }
+                else
+                {
+                    <EditForm Model="@ApplicationUser" OnValidSubmit="Profile" OnInvalidSubmit="HandleInvalidSubmit">
+                        <FluentValidationValidator Validator="@StudentProfileValidator" />
+
+                        <div class="form-group">
+
+                                <label>Profile Picture:</label>
+                            <InputFile OnChange="SingleImage" />
+                            <ValidationMessage For="@(() => ApplicationUser.Image)" />
+
+                            @if (!string.IsNullOrEmpty(ImageUrl))
+                            {
+                                <img src="@ImageUrl" width="100" height="100" />
+                            }
+                            <br />
+                            <label>First Name:</label>
+                            <InputText @bind-Value="ApplicationUser.FirstName" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUser.FirstName)" />
+
+                            <label>Last Name:</label>
+                            <InputText @bind-Value="ApplicationUser.LastName" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUser.LastName)" />
+
+                            <label>School Name:</label>
+                            <InputText @bind-Value="ApplicationUser.SchoolName" class="form-control" />
+
+
+                            <label>Email</label>
+                            <input type="email" @bind="ApplicationUser.Email" class="form-control" disabled />
+                            <ValidationMessage For="@(() => ApplicationUser.Email)" />
+
+                            <label>Use Previous Password</label>
+                            <input type="checkbox" @bind="checkbox" @oninput="OnCheckboxChange" />
+                            <br />
+
+                            @if (checkbox == true)
+                            {
+                                ApplicationUser.PasswordHash = Password;
+                            }
+                            else
+                            {
+
+
+                                @if (!_showPasswordProfile)
+                                {
+
+                                    <div class="form-group">
+                                        <label for="password">New Password:</label>
+                                        <input type="password" @bind="ApplicationUser.PasswordHash" class="form-control" />
+                                        <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordProfileVisibility">
+                                            <i class="fa @(_showPasswordProfile ? "fa-eye" : "fa-eye-slash")"></i>
+                                        </button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="form-group">
+                                        <label for="password">New Password:</label>
+                                        <input type="text" @bind="ApplicationUser.PasswordHash" class="form-control" />
+                                        <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordProfileVisibility">
+                                            <i class="fa @(_showPasswordProfile ? "fa-eye" : "fa-eye-slash")"></i>
+                                        </button>
+                                    </div>
+                                }
+                            }
+
+                            <ValidationMessage For="@(() => ApplicationUser.PasswordHash)" />
+
+                            <label>Date Of Birth:</label>
+                            <InputDate @bind-Value="ApplicationUser.DateOfBirth" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUser.DateOfBirth)" />
+
+                            <label>Gender:</label>
+                            <InputSelect @bind-Value="ApplicationUser.Gender" class="form-control">
+                                <option value="" disabled selected>Select An Option</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => ApplicationUser.Gender)" />
+
+                            <label>Nationality:</label>
+                            <InputText @bind-Value="ApplicationUser.Nationality" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUser.Nationality)" />
+
+                            <label>Residing Country:</label>
+                            <InputText @bind-Value="ApplicationUser.ResidingCountry" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUser.ResidingCountry)" />
+
+                            @*     <label>Time Zone:</label>
+                    <InputText @bind-Value="ApplicationUser.TimeZone" class="form-control" />
+                    <ValidationMessage For="@(() => ApplicationUser.TimeZone)" /> *@
+
+                            <label>Time Zone:</label>
+                            <RadzenDropDown class="form-control" @bind-Value=@ApplicationUser.TimeZone Data=@TimeZoneInfo TextProperty="DisplayName" ValueProperty="Id"
+                                            FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Time Zone" />
+
+
+                            <label>Local Number:</label>
+                            <InputText @bind-Value="ApplicationUser.LocalNumber" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUser.LocalNumber)" />
+
+                            <label>Whatsapp Number:</label>
+                            <InputText @bind-Value="ApplicationUser.WhatsappNumber" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUser.WhatsappNumber)" />
+
+                            <label>Curriculum:</label>
+                            <RadzenDropDown class="form-control" @bind-Value=@ApplicationUser.CurriculumId Data=@Curriculum TextProperty="Name" ValueProperty="Id"
+                                            FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Curriculum" />
+                            <ValidationMessage For="@(() => ApplicationUser.CurriculumId)" />
+
+                            <label>Grades:</label>
+                            <RadzenDropDown class="form-control" @bind-Value=@ApplicationUser.GradeId Data=@Grade TextProperty="Name" ValueProperty="Id"
+                                            FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select Grade" />
+                            <ValidationMessage For="@(() => ApplicationUser.GradeId)" />
+
+                            <label>Home Address:</label>
+                            <InputText @bind-Value="ApplicationUser.HomeAddress" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUser.HomeAddress)" />
+
+                        
+
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Save</button>
+
+                    </EditForm>
+                }
+
+            </RadzenTabsItem>
+
+            <RadzenTabsItem Text="First Guardian Details" Disabled=@(First)>
+
+                @if (ApplicationUser.IsFirstGuardianUpdated == false)
+                {
+                    <EditForm Model="@ApplicationUserGuardian1" OnValidSubmit="FirstGuardianCreate">
+                        <FluentValidationValidator Validator="@FirstGuardianValidator" />
+
+
+
+                        <div class="form-group">
+                            <label>First Guardian Full Name:</label>
+                            <InputText @bind-Value="ApplicationUserGuardian1.FirstName" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUserGuardian1.FirstName)" />
+
+                            <label>Relationship With Student:</label>
+                            <InputText @bind-Value="ApplicationUserGuardian1.RelationshipWithStudent" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUserGuardian1.RelationshipWithStudent)" />
+
+                            <label>Local Number:</label>
+                            <InputText @bind-Value="ApplicationUserGuardian1.LocalNumber" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUserGuardian1.LocalNumber)" />
+
+                            <label>Whatsapp Number:</label>
+                            <InputText @bind-Value="ApplicationUserGuardian1.WhatsappNumber" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUserGuardian1.WhatsappNumber)" />
+
+                            <label>Home Address:</label>
+                            <InputText @bind-Value="ApplicationUserGuardian1.HomeAddress" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUserGuardian1.HomeAddress)" />
+
+                            <label>Email</label>
+                            <input type="email" @bind="ApplicationUserGuardian1.Email" class="form-control" />
+                            <ValidationMessage For="@(() => ApplicationUserGuardian1.Email)" />
+
+                            @if (!_showPassword)
+                            {
+                                <div class="form-group">
+                                    <label for="password">Password:</label>
+                                    <input type="password" @bind="ApplicationUserGuardian1.PasswordHash" class="form-control" />
+                                    <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordVisibility">
+                                        <i class="fa @(_showPassword ? "fa-eye" : "fa-eye-slash")"></i>
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-group">
+                                    <label for="password">Password:</label>
+                                    <input type="text" @bind="ApplicationUserGuardian1.PasswordHash" class="form-control" />
+                                    <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordVisibility">
+                                        <i class="fa @(_showPassword ? "fa-eye" : "fa-eye-slash")"></i>
+                                    </button>
+                                </div>
+                            }
+                            <ValidationMessage For="@(() => ApplicationUserGuardian1.PasswordHash)" />
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </EditForm>
+                }
+                @if (ApplicationUser.IsFirstGuardianUpdated == true)
+                {
+                    @if (UserRole == "Guardian")
+                    {
+                        <EditForm Model="@ApplicationUserGuardian1">
+
+                            <div class="form-group">
+
+                                <label>First Guardian Full Name:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian1.FirstName" class="form-control" disabled />
+
+                                <label>Relationship With Student:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian1.RelationshipWithStudent" class="form-control" disabled />
+
+                                <label>Local Number:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian1.LocalNumber" class="form-control" disabled />
+
+                                <label>Whatsapp Number:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian1.WhatsappNumber" class="form-control" disabled />
+
+                                <label>Home Address:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian1.HomeAddress" class="form-control" disabled />
+
+                                <label>Email</label>
+                                <input type="email" @bind="ApplicationUserGuardian1.Email" class="form-control" disabled />
+
+                            </div>
+                        </EditForm>
+                    }
+                    else
+                    {
+                        <EditForm Model="@ApplicationUserGuardian1" OnValidSubmit="FirstGuardianEdit">
+                            @*    <FluentValidationValidator Validator="@FirstGuardianValidator" /> *@
+
+
+
+                            <div class="form-group">
+                                <label>First Guardian Full Name:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian1.FirstName" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian1.FirstName)" />
+
+                                <label>Relationship With Student:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian1.RelationshipWithStudent" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian1.RelationshipWithStudent)" />
+
+                                <label>Local Number:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian1.LocalNumber" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian1.LocalNumber)" />
+
+                                <label>Whatsapp Number:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian1.WhatsappNumber" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian1.WhatsappNumber)" />
+
+                                <label>Home Address:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian1.HomeAddress" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian1.HomeAddress)" />
+
+                                <label>Email</label>
+                                <input type="email" @bind="ApplicationUserGuardian1.Email" class="form-control" disabled />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian1.Email)" />
+
+                                <label>Use Previous Password</label>
+                                <input type="checkbox" @bind="checkbox1" @oninput="OnCheckboxChange1" />
+                                <br />
+
+                                @if (checkbox1 == true)
+                                {
+                                    ApplicationUserGuardian1.PasswordHash = PasswordGuardian1;
+                                }
+                                else
+                                {
+
+
+                                    @if (!_showPassword1)
+                                    {
+
+                                        <div class="form-group">
+                                            <label for="password">New Password:</label>
+                                            <input type="password" @bind="ApplicationUserGuardian1.PasswordHash" class="form-control" />
+                                            <button class="btn btn-outline-secondary" type="button" @onclick="TogglePassword1Visibility">
+                                                <i class="fa @(_showPassword1 ? "fa-eye" : "fa-eye-slash")"></i>
+                                            </button>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="form-group">
+                                            <label for="password">New Password:</label>
+                                            <input type="text" @bind="ApplicationUserGuardian1.PasswordHash" class="form-control" />
+                                            <button class="btn btn-outline-secondary" type="button" @onclick="TogglePassword1Visibility">
+                                                <i class="fa @(_showPassword1 ? "fa-eye" : "fa-eye-slash")"></i>
+                                            </button>
+                                        </div>
+                                    }
+                                }
+
+                                <ValidationMessage For="@(() => ApplicationUser.PasswordHash)" />
+
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </EditForm>
+                    }
+                }
+
+            </RadzenTabsItem>
+
+            <RadzenTabsItem Text="Second Guardian Details" Disabled=@(Second)>
+               
+                    @if (ApplicationUser.IsSecondGuardianUpdated == false)
+                    {
+                        <EditForm Model="@ApplicationUserGuardian2" OnValidSubmit="SecondGuardianCreate">
+                            <FluentValidationValidator Validator="@SecondGuardianValidator" />
+
+                            <div class="form-group">
+                                <label>Second Guardian Full Name:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.FirstName" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian2.FirstName)" />
+
+                                <label>Relationship With Student:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.RelationshipWithStudent" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian2.RelationshipWithStudent)" />
+
+                                <label>Local Number:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.LocalNumber" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian2.LocalNumber)" />
+
+                                <label>Whatsapp Number:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.WhatsappNumber" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian2.WhatsappNumber)" />
+
+                                <label>Home Address:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.HomeAddress" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian2.HomeAddress)" />
+
+                                <label>Email</label>
+                                <input type="email" @bind="ApplicationUserGuardian2.Email" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian2.Email)" />
+
+                                @if (!_showPassword)
+                                {
+                                    <div class="form-group">
+                                        <label for="password">Password:</label>
+                                        <input type="password" @bind="ApplicationUserGuardian2.PasswordHash" class="form-control" />
+                                        <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordVisibility">
+                                            <i class="fa @(_showPassword ? "fa-eye" : "fa-eye-slash")"></i>
+                                        </button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="form-group">
+                                        <label for="password">Password:</label>
+                                        <input type="text" @bind="ApplicationUserGuardian2.PasswordHash" class="form-control" />
+                                        <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordVisibility">
+                                            <i class="fa @(_showPassword ? "fa-eye" : "fa-eye-slash")"></i>
+                                        </button>
+                                    </div>
+                                }
+                                <ValidationMessage For="@(() => ApplicationUserGuardian2.PasswordHash)" />
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </EditForm>
+                    }
+                    @if (ApplicationUser.IsSecondGuardianUpdated == true)
+                    {
+                    @if (UserRole == "Guardian")
+                    {
+                        <EditForm Model="@ApplicationUserGuardian2">
+
+                            <div class="form-group">
+
+                                <label>Second Guardian Full Name:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.FirstName" class="form-control" disabled />
+
+                                <label>Relationship With Student:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.RelationshipWithStudent" class="form-control" disabled />
+
+                                <label>Local Number:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.LocalNumber" class="form-control" disabled />
+
+                                <label>Whatsapp Number:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.WhatsappNumber" class="form-control" disabled />
+
+                                <label>Home Address:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.HomeAddress" class="form-control" disabled />
+
+                                <label>Email</label>
+                                <input type="email" @bind="ApplicationUserGuardian2.Email" class="form-control" disabled />
+
+                            </div>
+                        </EditForm>
+                    }
+                    else
+                    {
+                        <EditForm Model="@ApplicationUserGuardian2" OnValidSubmit="SecondGuardianEdit">
+                            @* <FluentValidationValidator Validator="@SecondGuardianValidator" /> *@
+
+                            <div class="form-group">
+                                <label>Second Guardian Full Name:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.FirstName" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian2.FirstName)" />
+
+                                <label>Relationship With Student:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.RelationshipWithStudent" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian2.RelationshipWithStudent)" />
+
+                                <label>Local Number:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.LocalNumber" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian2.LocalNumber)" />
+
+                                <label>Whatsapp Number:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.WhatsappNumber" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian2.WhatsappNumber)" />
+
+                                <label>Home Address:</label>
+                                <InputText @bind-Value="ApplicationUserGuardian2.HomeAddress" class="form-control" />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian2.HomeAddress)" />
+
+                                <label>Email</label>
+                                <input type="email" @bind="ApplicationUserGuardian2.Email" class="form-control" disabled />
+                                <ValidationMessage For="@(() => ApplicationUserGuardian2.Email)" />
+
+                                <label>Use Previous Password</label>
+                                <input type="checkbox" @bind="checkbox2" @oninput="OnCheckboxChange2" />
+                                <br />
+
+                                @if (checkbox2 == true)
+                                {
+                                    ApplicationUserGuardian2.PasswordHash = PasswordGuardian2;
+                                }
+                                else
+                                {
+
+
+                                    @if (!_showPassword2)
+                                    {
+
+                                        <div class="form-group">
+                                            <label for="password">New Password:</label>
+                                            <input type="password" @bind="ApplicationUserGuardian2.PasswordHash" class="form-control" />
+                                            <button class="btn btn-outline-secondary" type="button" @onclick="TogglePassword2Visibility">
+                                                <i class="fa @(_showPassword2 ? "fa-eye" : "fa-eye-slash")"></i>
+                                            </button>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="form-group">
+                                            <label for="password">New Password:</label>
+                                            <input type="text" @bind="ApplicationUserGuardian2.PasswordHash" class="form-control" />
+                                            <button class="btn btn-outline-secondary" type="button" @onclick="TogglePassword2Visibility">
+                                                <i class="fa @(_showPassword2 ? "fa-eye" : "fa-eye-slash")"></i>
+                                            </button>
+                                        </div>
+                                    }
+                                }
+
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </EditForm>
+                    }
+                }
+            </RadzenTabsItem>
+
+            @if (UserRole == "SuperAdmin" || UserRole == "Admin")
+            {
+
+                <RadzenTabsItem Text="Action" Disabled=@(Admin)>
+
+                    @if (StudentId != null)
+                    {
+                        <EditForm Model="@ApplicationUser" OnValidSubmit="Action">
+                            <div class="form-group">
+
+                                <label>Select A Role:</label>
+                                <select @bind="roleId" class="form-control">
+                                    <option value="2c98e431-4a03-4999-807d-d7ac6ebedac9">Tutor</option>
+                                    <option value="feb14f16-e7ac-43bf-9bd2-e7de8d1ba71d">Student</option>
+                                    <option value="de8dc073-416f-4716-89be-b1c48c9f9de1">Admin</option>
+                                </select>
+
+                                <label>Active/Deactive:</label>
+                                <input type="checkbox" @bind="ApplicationUser.EmailConfirmed" />
+                                <br />
+
+                                <label>Regular/Irregular:</label>
+                                <select @bind="ApplicationUser.RegularIrregular" class="form-control">
+                                    <option value="" disabled selected>Select An Option</option>
+                                    <option value="Regular">Regular</option>
+                                    <option value="Irregular">Irregular</option>
+                                </select>
+
+                                <label>Extra Caring:</label>
+                                <input type="checkbox" @bind="ApplicationUser.ExtraCaring" />
+                                <br />
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </EditForm>
+                    }
+
+                </RadzenTabsItem>
+            }
+        }
+
+    </Tabs>
+</RadzenTabs>
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <button class="btn btn-secondary" @onclick="GoBackToIndex">Back</button>
+    </div>
+</div>
+
+@code
+{
+
+    [Parameter]
+    public string StudentId { get; set; }
+
+    private string? UserId;
+    private string? UserRole;
+    private string? GuardianStudentId;
+
+    private bool First = true;
+    private bool Second = true;
+    private bool Admin = true;
+
+    private bool checkbox = true;
+    private bool checkbox1 = true;
+    private bool checkbox2 = true;
+
+    private int index;
+    private string ImageUrl;
+    private byte[]? buffer;
+
+    private ApplicationUser? ApplicationUser { get; set; } = new ApplicationUser();
+    private ApplicationUser? ApplicationUserGuardian1 { get; set; } = new ApplicationUser();
+    private ApplicationUser? ApplicationUserGuardian2 { get; set; } = new ApplicationUser();
+
+    private IValidator<ApplicationUser> StudentProfileValidator { get; set; }
+    private IValidator<ApplicationUser> FirstGuardianValidator { get; set; }
+    private IValidator<ApplicationUser> SecondGuardianValidator { get; set; }
+
+
+    private string? roleId;
+
+
+    private List<Curriculum>? Curriculum { get; set; } = new List<Curriculum>();
+    private List<Grade>? Grade { get; set; } = new List<Grade>();
+
+    private bool _showPassword = false;
+    private bool _showPasswordProfile = false;
+    private bool _showPassword1 = false;
+    private bool _showPassword2 = false;
+
+    private List<TimeZoneInfo> TimeZoneInfo;
+
+    private void TogglePasswordVisibility()
+    {
+        _showPassword = !_showPassword;
+    }
+    private void TogglePasswordProfileVisibility()
+    {
+        _showPasswordProfile = !_showPasswordProfile;
+    }
+    private void TogglePassword1Visibility()
+    {
+        _showPassword1 = !_showPassword1;
+    }
+    private void TogglePassword2Visibility()
+    {
+        _showPassword2 = !_showPassword2;
+    }
+
+
+    private string? Password;
+    private string? PasswordGuardian1;
+    private string? PasswordGuardian2;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+
+            UserId = UserService.LoggedInUserId;
+            UserRole = UserService.LoggedInUserRole;
+            GuardianStudentId = UserService.LoggedInGuardianStudentId;
+
+            StudentProfileValidator = new ApplicationUser.StudentProfileValidator();
+            FirstGuardianValidator = new ApplicationUser.FirstGuardianValidator(context);
+            SecondGuardianValidator = new ApplicationUser.SecondGuardianValidator(context);
+
+            TimeZoneInfo = TimeZoneService.GetAllTimeZones();
+
+            if (StudentId != null)
+            {
+                roleId = context.ApplicationUserRoles.Where(x => x.UserId == StudentId).Select(x => x.RoleId).FirstOrDefault();
+
+                if (UserRole == "Guardian")
+                {
+                    ApplicationUser = context.ApplicationUsers.Where(x => x.Id == GuardianStudentId)
+                    .Include(x => x.Curriculums)
+                    .Include(x => x.Grades)
+                    .Include(x => x.StudentApplicationUsers)
+                    .FirstOrDefault();
+                }
+                else
+                {
+                    ApplicationUser = context.ApplicationUsers.Where(x => x.Id == StudentId)
+                          .Include(x => x.Curriculums)
+                    .Include(x => x.Grades)
+                    .Include(x => x.StudentApplicationUsers)
+                        .FirstOrDefault(); ;
+                }
+
+
+                Password = ApplicationUser.PasswordHash;
+
+                @if (UserRole == "SuperAdmin" || UserRole == "Admin")
+                {
+                    Admin = false;
+                    index = 3;
+                }
+                if (UserRole == "Student")
+                {
+                    if (ApplicationUser.IsProfileUpdated == false || ApplicationUser.IsUpdated == true)
+                    {
+                        index = 0;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true)
+                    {
+                        index = 1;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsFirstGuardianUpdated == true)
+                    {
+                        index = 2;
+                    }
+
+                }
+
+                if (ApplicationUser.IsProfileUpdated == true)
+                {
+                    First = false;
+                }
+                if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsFirstGuardianUpdated == true)
+                {
+                    First = false;
+                    Second = false;
+                }
+
+                if (ApplicationUser.IsFirstGuardianUpdated == false)
+                {
+                    ApplicationUserGuardian1 = new ApplicationUser();
+                }
+                if (ApplicationUser.IsFirstGuardianUpdated == true)
+                {
+                    if (UserRole == "Guardian")
+                    {
+                        ApplicationUserGuardian1 = context.ApplicationUsers
+                        .Where(x => x.StudentId == GuardianStudentId && x.IsFirstGuardian == true)
+                        .Include(x => x.Curriculums)
+                        .Include(x => x.Grades)
+                        .Include(x => x.StudentApplicationUsers)
+                        .FirstOrDefault();
+                    }
+                    else
+                    {
+                        ApplicationUserGuardian1 = context.ApplicationUsers
+                        .Where(x => x.StudentId == StudentId && x.IsFirstGuardian == true)
+                            .Include(x => x.Curriculums)
+                        .Include(x => x.Grades)
+                        .Include(x => x.StudentApplicationUsers)
+                        .FirstOrDefault();
+                    }
+
+                    PasswordGuardian1 = ApplicationUserGuardian1.PasswordHash;
+                }
+
+                if (ApplicationUser.IsSecondGuardianUpdated == false)
+                {
+                    ApplicationUserGuardian2 = new ApplicationUser();
+                }
+                if (ApplicationUser.IsSecondGuardianUpdated == true)
+                {
+                    if (UserRole == "Guardian")
+                    {
+                        ApplicationUserGuardian2 = context.ApplicationUsers
+                        .Where(x => x.StudentId == GuardianStudentId && x.IsSecondGuardian == true)
+                        .Include(x => x.Curriculums)
+                        .Include(x => x.Grades)
+                        .Include(x => x.StudentApplicationUsers)
+                        .FirstOrDefault();
+                    }
+                    else
+                    {
+                        ApplicationUserGuardian2 = context.ApplicationUsers
+                        .Where(x => x.StudentId == StudentId && x.IsSecondGuardian == true)
+                            .Include(x => x.Curriculums)
+                        .Include(x => x.Grades)
+                        .Include(x => x.StudentApplicationUsers)
+                        .FirstOrDefault();
+
+                    }
+                    PasswordGuardian2 = ApplicationUserGuardian2.PasswordHash;
+                }
+
+                Curriculum = context.Curriculums.ToList();
+                Grade = context.Grades.ToList();
+
+                if (ApplicationUser?.Image != null)
+                {
+                    ImageUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(ApplicationUser.Image)}";
+                }
+
+                if (ApplicationUser.IsProfileUpdated == true)
+                {
+                    First = false;
+                }
+                if (ApplicationUser.IsFirstGuardianUpdated == true)
+                {
+                    Second = false;
+                }
+
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here, such as logging or displaying an error message
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+
+    }
+
+    private void Load()
+    {
+        try
+        {
+            UserId = UserService.LoggedInUserId;
+            UserRole = UserService.LoggedInUserRole;
+
+            StudentProfileValidator = new ApplicationUser.StudentProfileValidator();
+            FirstGuardianValidator = new ApplicationUser.FirstGuardianValidator(context);
+            SecondGuardianValidator = new ApplicationUser.SecondGuardianValidator(context);
+
+            if (StudentId != null)
+            {
+                roleId = context.ApplicationUserRoles.Where(x => x.UserId == StudentId).Select(x => x.RoleId).FirstOrDefault();
+
+
+                if (UserRole == "Guardian")
+                {
+                    ApplicationUser = context.ApplicationUsers.Where(x => x.Id == GuardianStudentId)
+                    .Include(x => x.Curriculums)
+                    .Include(x => x.Grades)
+                    .Include(x => x.StudentApplicationUsers)
+                    .FirstOrDefault();
+                }
+                else
+                {
+                    ApplicationUser = context.ApplicationUsers.Where(x => x.Id == StudentId)
+                          .Include(x => x.Curriculums)
+                    .Include(x => x.Grades)
+                    .Include(x => x.StudentApplicationUsers)
+                        .FirstOrDefault(); ;
+                }
+                Password = ApplicationUser.PasswordHash;
+                // ApplicationUser.PasswordHash = "";
+
+                @if (UserRole == "SuperAdmin" || UserRole == "Admin")
+                {
+                    Admin = false;
+                    index = 3;
+                }
+                if (UserRole == "Student")
+                {
+                    if (ApplicationUser.IsProfileUpdated == false || ApplicationUser.IsUpdated == true)
+                    {
+                        index = 0;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true)
+                    {
+                        index = 1;
+                    }
+                    if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsFirstGuardianUpdated == true)
+                    {
+                        index = 2;
+                    }
+
+                }
+
+                if (ApplicationUser.IsProfileUpdated == true)
+                {
+                    First = false;
+                }
+                if (ApplicationUser.IsProfileUpdated == true && ApplicationUser.IsFirstGuardianUpdated == true)
+                {
+                    First = false;
+                    Second = false;
+                }
+
+                if (ApplicationUser.IsFirstGuardianUpdated == false)
+                {
+                    ApplicationUserGuardian1 = new ApplicationUser();
+                }
+                if (ApplicationUser.IsFirstGuardianUpdated == true)
+                {
+                    if (UserRole == "Guardian")
+                    {
+                        ApplicationUserGuardian1 = context.ApplicationUsers
+                        .Where(x => x.StudentId == GuardianStudentId && x.IsFirstGuardian == true)
+                        .Include(x => x.Curriculums)
+                        .Include(x => x.Grades)
+                        .Include(x => x.StudentApplicationUsers)
+                        .FirstOrDefault();
+                    }
+                    else
+                    {
+                        ApplicationUserGuardian1 = context.ApplicationUsers
+                        .Where(x => x.StudentId == StudentId && x.IsFirstGuardian == true)
+                            .Include(x => x.Curriculums)
+                        .Include(x => x.Grades)
+                        .Include(x => x.StudentApplicationUsers)
+                        .FirstOrDefault();
+                    }
+
+                    PasswordGuardian1 = ApplicationUserGuardian1.PasswordHash;
+                }
+
+                if (ApplicationUser.IsSecondGuardianUpdated == false)
+                {
+                    ApplicationUserGuardian2 = new ApplicationUser();
+                }
+                if (ApplicationUser.IsSecondGuardianUpdated == true)
+                {
+                    if (UserRole == "Guardian")
+                    {
+                        ApplicationUserGuardian2 = context.ApplicationUsers
+                        .Where(x => x.StudentId == GuardianStudentId && x.IsSecondGuardian == true)
+                        .Include(x => x.Curriculums)
+                        .Include(x => x.Grades)
+                        .Include(x => x.StudentApplicationUsers)
+                        .FirstOrDefault();
+                    }
+                    else
+                    {
+                        ApplicationUserGuardian2 = context.ApplicationUsers
+                        .Where(x => x.StudentId == StudentId && x.IsSecondGuardian == true )
+                            .Include(x => x.Curriculums)
+                        .Include(x => x.Grades)
+                        .Include(x => x.StudentApplicationUsers)
+                        .FirstOrDefault();
+
+                    }
+                    PasswordGuardian2 = ApplicationUserGuardian2.PasswordHash;
+                }
+
+                Curriculum = context.Curriculums.ToList();
+                Grade = context.Grades.ToList();
+
+                if (ApplicationUser?.Image != null)
+                {
+                    ImageUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(ApplicationUser.Image)}";
+                }
+
+                if (ApplicationUser.IsProfileUpdated == true)
+                {
+                    First = false;
+                }
+                if (ApplicationUser.IsFirstGuardianUpdated == true)
+                {
+                    Second = false;
+                }
+
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here, such as logging or displaying an error message
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void Profile()
+    {
+        var validator = new ApplicationUser.StudentProfileValidator();
+        var validationResult = validator.Validate(ApplicationUser);
+
+        if (validationResult.IsValid)
+        {
+            try
+            {
+
+
+                if (checkbox == false)
+                {
+                    var hashedPassword = UserManager.PasswordHasher.HashPassword(ApplicationUser, ApplicationUser.PasswordHash);
+                    ApplicationUser.PasswordHash = hashedPassword;
+                }
+
+                ApplicationUser.UserName = ApplicationUser.Email;
+                ApplicationUser.NormalizedUserName = ApplicationUser.Email.ToUpper();
+                ApplicationUser.NormalizedEmail = ApplicationUser.Email.ToUpper();
+
+
+
+
+
+                ApplicationUser.IsProfileUpdated = true;
+                context.SaveChanges();
+                Load();
+                First = false;
+                index = 1;
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+    private void FirstGuardianCreate()
+    {
+        var validator = new ApplicationUser.FirstGuardianValidator(context);
+        var validationResult = validator.Validate(ApplicationUserGuardian1);
+
+        if (validationResult.IsValid)
+        {
+            try
+            {
+                var hashedPassword = UserManager.PasswordHasher.HashPassword(ApplicationUserGuardian1, ApplicationUserGuardian1.PasswordHash);
+                DateTime date = DateTime.Now;
+
+                ApplicationUser.IsFirstGuardianUpdated = true;
+                context.SaveChanges();
+
+                var obj = new ApplicationUser
+                    {
+                        IsFirstGuardian = true,
+                        StudentId = StudentId,
+                        FirstName = ApplicationUserGuardian1.FirstName,
+                        RelationshipWithStudent = ApplicationUserGuardian1.RelationshipWithStudent,
+                        LocalNumber = ApplicationUserGuardian1.LocalNumber,
+                        WhatsappNumber = ApplicationUserGuardian1.WhatsappNumber,
+                        HomeAddress = ApplicationUserGuardian1.HomeAddress,
+                        UserName = ApplicationUserGuardian1.Email,
+                        Email = ApplicationUserGuardian1.Email,
+                        NormalizedUserName = ApplicationUserGuardian1.Email.ToUpper(),
+                        NormalizedEmail = ApplicationUserGuardian1.Email.ToUpper(),
+                        PasswordHash = hashedPassword,
+                        Tag = "G" + date.ToString("yyyyMMddHHmmss"),
+                        RoleName = "First Guardian",
+                        IsUpdated=true,
+                        Update = "No Need To Update"
+                    };
+                context.ApplicationUsers.Add(obj);
+                context.SaveChanges();
+
+                var obj1 = new ApplicationUserRole
+                    {
+                        UserId = obj.Id,
+                        RoleId = "a2204359-8a88-49c9-867f-a2dd15e3f7c8",
+                    };
+                context.ApplicationUserRoles.Add(obj1);
+                context.SaveChanges();
+
+                Load();
+                Second = false;
+                index = 2;
+
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+    private void FirstGuardianEdit()
+    {
+        var hashedPassword = UserManager.PasswordHasher.HashPassword(ApplicationUserGuardian1, ApplicationUserGuardian1.PasswordHash);
+
+        try
+        {
+            ApplicationUserGuardian1.PasswordHash = hashedPassword;
+            context.SaveChanges();
+            Load();
+            Second = false;
+            index = 2;
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+        // }
+
+    }
+
+
+    private void SecondGuardianCreate()
+    {
+        try
+        {
+            var hashedPassword = UserManager.PasswordHasher.HashPassword(ApplicationUserGuardian2, ApplicationUserGuardian2.PasswordHash);
+            DateTime date = DateTime.Now;
+
+            ApplicationUser.IsSecondGuardianUpdated = true;
+            ApplicationUser.IsUpdated = true;
+            ApplicationUser.Update = "Updated";
+            context.SaveChanges();
+
+            var obj = new ApplicationUser
+                {
+                    IsSecondGuardian = true,
+                    StudentId = StudentId,
+                    FirstName = ApplicationUserGuardian2.FirstName,
+                    RelationshipWithStudent = ApplicationUserGuardian2.RelationshipWithStudent,
+                    LocalNumber = ApplicationUserGuardian2.LocalNumber,
+                    WhatsappNumber = ApplicationUserGuardian2.WhatsappNumber,
+                    HomeAddress = ApplicationUserGuardian2.HomeAddress,
+                    UserName = ApplicationUserGuardian2.Email,
+                    Email = ApplicationUserGuardian2.Email,
+                    NormalizedUserName = ApplicationUserGuardian2.Email.ToUpper(),
+                    NormalizedEmail = ApplicationUserGuardian2.Email.ToUpper(),
+                    PasswordHash = hashedPassword,
+                    Tag = "G" + date.ToString("yyyyMMddHHmmss"),
+                    RoleName = "Second Guardian",
+                    Update = "No Need To Update"
+                };
+            context.ApplicationUsers.Add(obj);
+            context.SaveChanges();
+
+            var obj1 = new ApplicationUserRole
+                {
+                    UserId = obj.Id,
+                    RoleId = "a2204359-8a88-49c9-867f-a2dd15e3f7c8",
+                };
+            context.ApplicationUserRoles.Add(obj1);
+            context.SaveChanges();
+
+            Load();
+
+            if (UserRole == "Student")
+            {
+                NavigationManager.NavigateTo("/StudentDashboard");
+            }
+            if (UserRole == "SuperAdmin")
+            {
+                index = 3;
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+
+    private void SecondGuardianEdit()
+    {
+        var hashedPassword = UserManager.PasswordHasher.HashPassword(ApplicationUserGuardian1, ApplicationUserGuardian2.PasswordHash);
+
+        try
+        {
+            ApplicationUserGuardian2.PasswordHash = hashedPassword;
+            context.SaveChanges();
+            Load();
+
+            if (UserRole == "Student")
+            {
+                NavigationManager.NavigateTo("/StudentDashboard");
+            }
+            if (UserRole == "SuperAdmin")
+            {
+                index = 3;
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void Action()
+    {
+
+        try
+        {
+            var record = context.ApplicationUserRoles.Where(x => x.UserId == StudentId).FirstOrDefault();
+            context.ApplicationUserRoles.Remove(record);
+            context.SaveChanges();
+
+            string? RoleName = "";
+            if (roleId == "de8dc073-416f-4716-89be-b1c48c9f9de1")
+            {
+                RoleName = "Admin";
+                ApplicationUser.IsAdmin = true;
+                ApplicationUser.IsTutor = false;
+                ApplicationUser.IsStudent = false;
+
+            }
+            else if (roleId == "2c98e431-4a03-4999-807d-d7ac6ebedac9")
+            {
+                RoleName = "Tutor";
+                ApplicationUser.IsAdmin = false;
+                ApplicationUser.IsTutor = true;
+                ApplicationUser.IsStudent = false;
+            }
+            else if (roleId == "feb14f16-e7ac-43bf-9bd2-e7de8d1ba71d")
+            {
+                RoleName = "Student";
+                ApplicationUser.IsAdmin = false;
+                ApplicationUser.IsTutor = false;
+                ApplicationUser.IsStudent = true;
+            }
+            ApplicationUser.RoleName = RoleName;
+            context.SaveChanges();
+
+            var obj = new ApplicationUserRole
+                {
+                    UserId = StudentId,
+                    RoleId = roleId,
+                };
+            context.ApplicationUserRoles.Add(obj);
+            context.SaveChanges();
+            Load();
+
+            NavigationManager.NavigateTo("/UserIndex");
+
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    private void GoBackToIndex()
+    {
+        if (UserRole == "SuperAdmin")
+        {
+            NavigationManager.NavigateTo("/UserIndex");
+        }
+        if (UserRole == "Student")
+        {
+            NavigationManager.NavigateTo("/StudentDashboard");
+        }
+
+    }
+
+    internal async Task HandleInvalidSubmit()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToFirstError");
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+
+    private async Task SingleImage(InputFileChangeEventArgs e)
+    {
+        // Get the selected file
+        var selectedFiles = e.GetMultipleFiles();
+
+        if (selectedFiles != null && selectedFiles.Count > 0)
+        {
+
+            // Assuming you only handle the first selected file
+            var selectedFile = selectedFiles[0];
+
+            if (selectedFile.ContentType == "application/pdf")
+            {
+                JSRuntime.InvokeVoidAsync("alert", "File Should Not Be In Pdf Format");
+                throw new InvalidOperationException("The selected file is a PDF.");
+            }
+            // Read the contents of the selected file
+            var stream = selectedFile.OpenReadStream();
+            buffer = new byte[selectedFile.Size];
+            await stream.ReadAsync(buffer);
+
+            // Convert the file content to a Base64 string
+            var base64Image = Convert.ToBase64String(buffer);
+
+            // Set ImageUrl to the data URL
+            ImageUrl = $"data:{selectedFile.ContentType};base64,{base64Image}";
+
+            if (buffer != null && buffer.Length > 0)
+            {
+                ApplicationUser.Image = buffer;
+            }
+        }
+    }
+
+    private void OnCheckboxChange(ChangeEventArgs e)
+    {
+        checkbox = (bool)e.Value;
+        if (!checkbox)
+        {
+            ApplicationUser.PasswordHash = string.Empty;
+        }
+    }
+    private void OnCheckboxChange1(ChangeEventArgs e)
+    {
+        checkbox1 = (bool)e.Value;
+        if (!checkbox1)
+        {
+            ApplicationUserGuardian1.PasswordHash = string.Empty;
+        }
+    }
+    private void OnCheckboxChange2(ChangeEventArgs e)
+    {
+        checkbox2 = (bool)e.Value;
+        if (!checkbox2)
+        {
+            ApplicationUserGuardian2.PasswordHash = string.Empty;
+        }
+    }
+}

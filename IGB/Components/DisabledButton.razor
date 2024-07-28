@@ -1,0 +1,72 @@
+﻿@* <style>
+    .red-button {
+        background-color: red;
+        color: white;
+    }
+</style>
+
+
+<button @onclick="OnClick" disabled="@isDisabled" class="@ButtonClass">@ChildContent</button>
+
+@code {
+    private bool isDisabled = false;
+
+    [Parameter]
+    public EventCallback OnClickCallback { get; set; }
+
+    [Parameter]
+    public RenderFragment ChildContent { get; set; }
+
+     private string ButtonClass => isDisabled ? "red-button" : "";
+
+    private void OnClick()
+    {
+        if (!isDisabled)
+        {
+            isDisabled = true;
+            OnClickCallback.InvokeAsync(null);
+        }
+    }
+}
+ *@
+
+
+<style>
+    .red-button {
+        background-color: red;
+        color: white;
+    }
+</style>
+
+<button @onclick="OnClick" disabled="@isDisabled" class="@ButtonClass">@ChildContent</button>
+
+@code {
+    private bool isDisabled = false;
+
+    [Parameter]
+    public EventCallback OnClickCallback { get; set; }
+
+    [Parameter]
+    public RenderFragment ChildContent { get; set; }
+
+    private string ButtonClass => isDisabled ? "red-button" : "";
+
+    private async Task OnClick()
+    {
+        if (!isDisabled)
+        {
+            isDisabled = true;
+            StateHasChanged(); // Update the UI immediately to reflect the disabled state
+
+            // Invoke the callback
+            await OnClickCallback.InvokeAsync(null);
+
+            // Delay for 2 seconds
+            await Task.Delay(5000);
+
+            // Re-enable the button
+            isDisabled = false;
+            StateHasChanged(); // Update the UI to reflect the re-enabled state
+        }
+    }
+}

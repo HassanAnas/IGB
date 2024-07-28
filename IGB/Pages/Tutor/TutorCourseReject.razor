@@ -1,0 +1,69 @@
+﻿@page "/TutorCourseReject/{CourseBookingId?}/{NotificationId?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+
+@if (CourseBooking.IsAdminRejected == true)
+{
+    <h1>Course Is Rejected</h1>
+}
+else
+{
+    <h1>Course Is Not Rejected</h1>
+}
+
+@code {
+    [Parameter]
+    public string? CourseBookingId { get; set; }
+         [Parameter]
+    public string? NotificationId { get; set; }
+
+    private CourseBooking? CourseBooking = new CourseBooking();
+
+    private AllNotification AllNotification = new AllNotification();
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        CourseBooking = context.CourseBookings
+         .Include(x => x.Courses)
+        .Include(x => x.StudentApplicationUsers).ThenInclude(x => x.Curriculums)
+        .Include(x => x.StudentApplicationUsers).ThenInclude(x => x.Grades)
+        .Where(x => x.Id == Convert.ToInt64(CourseBookingId))
+        .FirstOrDefault();
+
+        CourseBooking.Status = "Rejected By Tutor";
+        CourseBooking.IsSubmited = false;
+        CourseBooking.IsAdminApproved = false;
+        CourseBooking.IsAdminRejected = false;
+        CourseBooking.IsTutorApproved = false;
+        CourseBooking.IsTutorRejected = true;
+        CourseBooking.IsBooked = false;
+
+        AllNotification = context.AllNotifications
+        .Include(x => x.CourseBookings).ThenInclude(x => x.Courses)
+        .Where(x => x.Id == Convert.ToInt64(NotificationId)).FirstOrDefault();
+        AllNotification.IsReadByTutor = true;
+        context.SaveChanges();
+
+
+        var ForStudent = new AllNotification
+            {
+                Notification = $"Your {AllNotification.CourseBookings.Courses.Name} Course Booking Request Is Rejected By Tutor",
+                ForStudent = true,
+                ForStudentId = CourseBooking.StudentApplicationUsers.Id
+            };
+        context.AllNotifications.Add(ForStudent);
+        context.SaveChanges();
+
+        var ForAdmin = new AllNotification
+            {
+                Notification = $"{AllNotification.CourseBookings.Courses.Name} Course Booking Request Is Rejected By Tutor",
+                ForAdmin = true,
+            };
+        context.AllNotifications.Add(ForAdmin);
+        context.SaveChanges();
+
+    }
+}
+

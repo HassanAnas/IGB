@@ -1,0 +1,176 @@
+﻿@page "/AdminCourseApprove/{CourseBookingId?}/{NotificationId?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+
+<EditForm Model="@CourseBooking" OnValidSubmit="Approve">
+    <FluentValidationValidator Validator="@CourseApproveValidator" />
+
+    @if (CourseBooking != null)
+    {
+        @if (StudentApplicationUser != null)
+        {
+            <label>Student Name:</label>
+            <InputText @bind-Value="StudentApplicationUser.FirstName" class="form-control" disabled />
+
+            <label>Student Tag:</label>
+            <InputText @bind-Value="StudentApplicationUser.Tag" class="form-control" disabled />
+
+            <label>Curriculum:</label>
+            <InputText @bind-Value="StudentApplicationUser.Curriculums.Name" class="form-control" disabled />
+
+            <label>Grade:</label>
+            <InputText @bind-Value="StudentApplicationUser.Grades.Name" class="form-control" disabled />
+
+            <label>Student Remarks:</label>
+            <InputText @bind-Value="CourseBooking.StudentRemarks" class="form-control" disabled />
+
+        }
+        @if (CourseBooking.Courses != null)
+        {
+            <label>Course:</label>
+            <InputText @bind-Value="CourseBooking.Courses.Name" class="form-control" disabled />
+
+
+        }
+        <label>Tutor Name:</label>
+        <RadzenDropDown class="form-control" @bind-Value=@CourseBooking.TutorId Data=@TutorsList TextProperty="FirstName" ValueProperty="Id"
+                        FilterDelay="1" FilterPlaceholder="Search Here . . ." AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" AllowClear=true Placeholder="Select A Tutor" />
+        <ValidationMessage For="@(() => CourseBooking.TutorId)" />
+
+        <label>Credit:</label>
+        <input type="number" @bind="StudentCredit.Credit" class="form-control" />
+
+
+        <label>Admin Remarks:</label>
+        <InputText @bind-Value="CourseBooking.AdminRemarks" class="form-control" />
+
+
+    }
+
+    <button type="submit" class="btn btn-primary">Save</button>
+</EditForm>
+
+
+@code {
+    [Parameter]
+    public string? CourseBookingId { get; set; }
+    [Parameter]
+    public string? NotificationId { get; set; }
+
+    private IValidator<CourseBooking> CourseApproveValidator { get; set; }
+
+    private CourseBooking? CourseBooking = new CourseBooking();
+    private StudentCredit? StudentCredit = new StudentCredit();
+    private List<ApplicationUser> TutorsList = new List<ApplicationUser>();
+    private ApplicationUser StudentApplicationUser = new ApplicationUser();
+    private AllNotification AllNotification = new AllNotification();
+
+    private string? TutorId = "";
+    private string? StudentId = "";
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        CourseApproveValidator = new CourseBooking.CourseApproveValidator();
+        Load();
+    }
+
+
+
+    private void Load()
+    {
+        StudentCredit = new StudentCredit();
+
+        CourseBooking = context.CourseBookings
+         .Include(x => x.Courses)
+        .Include(x => x.StudentApplicationUsers).ThenInclude(x => x.Curriculums)
+        .Include(x => x.StudentApplicationUsers).ThenInclude(x => x.Grades)
+        .Where(x => x.Id == Convert.ToInt64(CourseBookingId))
+        .FirstOrDefault();
+
+        if (CourseBooking != null)
+        {
+            TutorsList = context.ApplicationUsers
+        .Where(x => x.IsTutor == true &&
+                    x.TutorSpecialitys.Any(ts => ts.CurriculumId == CourseBooking.StudentApplicationUsers.CurriculumId) &&
+                    x.TutorSpecialitys.Any(ts => ts.GradeId == CourseBooking.StudentApplicationUsers.GradeId) &&
+                    x.TutorSpecialitys.Any(ts => ts.CourseId == CourseBooking.CourseId))
+        .ToList();
+
+            StudentId = CourseBooking.StudentApplicationUsers.Id;
+
+            StudentApplicationUser = context.ApplicationUsers.Where(x => x.Id == StudentId).FirstOrDefault();
+
+
+
+
+            AllNotification = context.AllNotifications
+               .Include(x => x.CourseBookings).ThenInclude(x => x.Courses)
+        .Where(x => x.Id == Convert.ToInt64(NotificationId)).FirstOrDefault();
+        }
+    }
+
+    protected void Approve()
+    {
+        try
+        {
+
+            var validator = new CourseBooking.CourseApproveValidator();
+            var validationResult = validator.Validate(CourseBooking);
+
+            if (validationResult.IsValid)
+            {
+                CourseBooking.Status = "Approved By Admin";
+                CourseBooking.IsSubmited = false;
+                CourseBooking.IsAdminApproved = true;
+                CourseBooking.IsAdminRejected = false;
+                CourseBooking.IsTutorApproved = false;
+                CourseBooking.IsTutorRejected = false;
+                CourseBooking.IsBooked = false;
+                TutorId = CourseBooking.TutorId;
+
+
+                AllNotification.IsReadByAdmin = true;
+
+                var ForStudent = new AllNotification
+                    {
+                        Notification = $"Your {CourseBooking.Courses.Name} Course Booking Request Is Approved By Admin",
+                        ForStudent = true,
+                        ForStudentId = StudentId
+                    };
+                context.AllNotifications.Add(ForStudent);
+
+                var ForTutor = new AllNotification
+                    {
+                        CourseBookingId = Convert.ToInt64(CourseBookingId),
+                        Notification = $"{CourseBooking.Courses.Name} Course Booking Request Need To Be Approved",
+                        ForTutor = true,
+                        ForTutorId = TutorId
+                    };
+                context.AllNotifications.Add(ForTutor);
+
+
+                var credit = new StudentCredit
+                    {
+                        Credit = StudentCredit.Credit,
+                        StudentId = CourseBooking.StudentApplicationUsers.Id,
+                        CourseBookingId = Convert.ToInt64(CourseBookingId)
+                    };
+                context.StudentCredits.Add(credit);
+
+                context.SaveChanges();
+
+
+                NavigationManager.NavigateTo("/AdminAllNotifications");
+            }
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+    }
+}
+

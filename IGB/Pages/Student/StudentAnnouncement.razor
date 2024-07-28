@@ -1,0 +1,152 @@
+﻿@page "/StudentAnnouncement/{StudentId?}"
+
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject IModalService ModalService
+@inject ApplicationDbContext context
+@inject TimeConversionService TimeConversionService
+
+@attribute [Authorize(Roles = "Student,Guardian")]
+
+<h3>Announcements</h3>
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <RadzenTextBox Placeholder="Search..." @bind-Value="@AnnouncementsearchTerm" Change="@(args => AnnouncementFilterChanged())" />
+    </div>
+</div>
+
+<RadzenDataGrid Data="@Announcement" Count="@Announcementcount" TItem="TutorFeedback" LoadData="@AnnouncementLoadData"
+                ShowPagingSummary="true"
+                AllowSorting="true"
+                AllowPaging="true" PageSize="10"
+                PageSizeOptions="new int[] { 10 , 25, 50 }"
+                AllowFiltering="true" FilterMode="FilterMode.Simple" FilterDelay="2000"
+                AllowColumnResize="true"
+                AllowColumnPicking="true"
+                ColumnWidth="150px">
+
+    <Columns>
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Title="Serial No.">
+            <Template Context="item">
+                @((Announcement.IndexOf(item) + 1) + ((AnnouncementcurrentPage - 1) * AnnouncementpageSize))
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="Date" Title="Date" Sortable="true">
+            <Template Context="data">
+                @if (data.Date != null)
+                {
+                    if (UserRole == "Guardian")
+                    {
+                        DateTime Date = TimeConversionService.ConvertFromUtc(data.Date.Value, ApplicationUser.StudentApplicationUsers.TimeZone);
+                        <Span>@Date</Span>
+                    }
+                    else
+                    {
+                        DateTime Date = TimeConversionService.ConvertFromUtc(data.Date.Value, ApplicationUser.TimeZone);
+                        <Span>@Date</Span>
+                    }
+                }
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="LessonBookings.CourseBookings.StudentApplicationUsers.FirstName" Title="Student" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="LessonBookings.CourseBookings.TutorApplicationUsers.FirstName" Title="Tutor" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="LessonBookings.CourseBookings.Courses.Name" Title="Course" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="LessonBookings.LessonName" Title="Lesson" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="TutorFeedback" Property="Announcement" Title="Announcement" Sortable="true" />
+
+    </Columns>
+
+</RadzenDataGrid>
+
+@code {
+
+    [Parameter]
+    public string? StudentId { get; set; }
+
+    private string? UserId;
+    private string? UserRole;
+
+    private List<TutorFeedback> Announcement = new List<TutorFeedback>();
+    private ApplicationUser ApplicationUser = new ApplicationUser();
+
+    int Announcementcount;
+    string AnnouncementsearchTerm = "";
+
+    int AnnouncementcurrentPage = 1;
+    int AnnouncementpageSize = 10;
+
+    private LoadDataArgs Lastargs = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+
+        ApplicationUser = context.ApplicationUsers.Where(x => x.Id == UserId).Include(x => x.StudentApplicationUsers).FirstOrDefault();
+
+        Announcement = context.TutorFeedbacks
+       .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers)
+       .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+       .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.Courses)
+       .Where(x => x.LessonBookings.CourseBookings.StudentApplicationUsers.Id == StudentId)
+       .Skip(0).Take(10).ToList();
+
+        Announcementcount = context.TutorFeedbacks.Where(x => x.LessonBookings.CourseBookings.StudentApplicationUsers.Id == StudentId).Count();
+    }
+
+    //------------
+    void AnnouncementLoadData(LoadDataArgs args)
+    {
+        Lastargs = args;
+
+        var query = context.TutorFeedbacks
+              .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+        .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.Courses)
+        .Where(x => x.LessonBookings.CourseBookings.StudentApplicationUsers.Id == StudentId)
+        .AsQueryable();
+
+        if (!string.IsNullOrEmpty(AnnouncementsearchTerm))
+        {
+
+            // query = query.Where(p => p.Name.Contains(StudentFeedbacksearchTerm));
+        }
+
+        if (!string.IsNullOrEmpty(args.Filter))
+        {
+
+            query = query.Where(args.Filter);
+        }
+
+        if (!string.IsNullOrEmpty(args.OrderBy))
+        {
+            query = query.OrderBy(args.OrderBy);
+        }
+
+        Announcementcount = query.Count();
+
+        int skip = args.Skip ?? 0;
+        int top = args.Top ?? 10;
+
+        AnnouncementcurrentPage = (skip / top) + 1;
+        AnnouncementpageSize = top;
+
+        Announcement = query.Skip(skip).Take(top).ToList();
+    }
+
+
+    void AnnouncementFilterChanged()
+    {
+        AnnouncementLoadData(new LoadDataArgs());
+    }
+
+}

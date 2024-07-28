@@ -1,0 +1,275 @@
+﻿@page "/TutorBookedCourse/{TutorId?}"
+
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject IModalService ModalService
+@inject UserService UserService
+@attribute [Authorize(Roles = "Tutor,Admin")]
+
+
+<h3>Booked Courses Index</h3>
+
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <RadzenTextBox Placeholder="Search..." @bind-Value="@searchTerm" Change="@(args => FilterChanged())" />
+    </div>
+</div>
+
+<RadzenDataGrid Data="@CourseBooking" Count="@count" TItem="CourseBooking" LoadData="@LoadData"
+                ShowPagingSummary="true"
+                AllowSorting="true"
+                AllowPaging="true" PageSize="10"
+                PageSizeOptions="new int[] { 10 , 25, 50 }"
+                AllowFiltering="true" FilterMode="FilterMode.Simple" FilterDelay="2000"
+                AllowColumnResize="true"
+                AllowColumnPicking="true"
+                ColumnWidth="150px">
+
+    <Columns>
+
+        <RadzenDataGridColumn TItem="CourseBooking" Title="Serial No.">
+            <Template Context="item">
+                @((CourseBooking.IndexOf(item) + 1) + ((currentPage - 1) * pageSize))
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="CourseBooking" Property="StudentApplicationUsers.FirstName" Title="Student Name" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="CourseBooking" Property="Courses.Name" Title="Course Name" Sortable="true"  />
+
+        <RadzenDataGridColumn TItem="CourseBooking" Property="TutorApplicationUsers.FirstName" Title="Tutor Name" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="CourseBooking" Property="Status" Title="Status" Sortable="true"  />
+
+        <RadzenDataGridColumn TItem="CourseBooking" Title="Action">
+            <Template Context="data">
+                <RadzenButton Text="Delete" Class="btn btn-primary" Click="@(args => Delete(data))" />
+                <RadzenButton Text="Complete" Class="btn btn-primary" Click="@(args => Complete(data.Id))" />
+                <RadzenButton Text="Course Ledger" Class="btn btn-primary" Click="@(args => CourseLedger(data.Id))" />
+                <RadzenButton Text="Lesson Booking" Class="btn btn-primary" Click="@(args => LessonBooking(data.Id))" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+
+</RadzenDataGrid>
+
+
+
+@code {
+    [Parameter]
+    public string? TutorId { get; set; }
+
+    private List<CourseBooking>? CourseBooking = new List<CourseBooking>();
+
+    int count;
+    string searchTerm = "";
+
+    int currentPage = 1;
+    int pageSize = 10;
+
+    private LoadDataArgs Lastargs;
+
+    private string? UserId;
+    private string? UserRole;
+
+    private ApplicationUser? ApplicationUser = new ApplicationUser();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // UserId =  UserService.GetLoggedInUserId();
+        // UserRole =  UserService.GetLoggedInUserRole();
+
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+
+        ApplicationUser = context.ApplicationUsers.Where(x => x.Id == UserId).FirstOrDefault();
+
+
+        CourseBooking = new List<CourseBooking>();
+        Load();
+    }
+
+    private void Load()
+    {
+
+
+        CourseBooking = context.CourseBookings
+        .Include(x => x.StudentApplicationUsers)
+        .Include(x => x.TutorApplicationUsers)
+        .Include(x => x.AdminApplicationUsers)
+        .Where(x => x.TutorId == TutorId)
+        .Include(x => x.Courses)
+        .Skip(0).Take(10).ToList();
+
+        count = context.CourseBookings.Where(x => x.TutorId == TutorId).Count();
+    }
+
+    void LoadData(LoadDataArgs args)
+    {
+        Lastargs = args;
+
+        var query = context.CourseBookings
+        .Include(x => x.StudentApplicationUsers)
+        .Include(x => x.TutorApplicationUsers)
+        .Include(x => x.AdminApplicationUsers)
+        .Include(x => x.Courses)
+        .Where(x => x.TutorId == TutorId)
+        .AsQueryable();
+
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+
+            query = query.Where(p => p.StudentRemarks.Contains(searchTerm));
+        }
+
+        if (!string.IsNullOrEmpty(args.Filter))
+        {
+
+            query = query.Where(args.Filter);
+        }
+
+        if (!string.IsNullOrEmpty(args.OrderBy))
+        {
+            query = query.OrderBy(args.OrderBy);
+        }
+
+        count = query.Count();
+
+        int skip = args.Skip ?? 0;
+        int top = args.Top ?? 10;
+
+        currentPage = (skip / top) + 1;
+        pageSize = top;
+
+        CourseBooking = query.Skip(skip).Take(top).ToList();
+    }
+
+
+    void FilterChanged()
+    {
+        LoadData(new LoadDataArgs());
+    }
+
+
+
+    private void Delete(CourseBooking Course)
+    {
+        try
+        {
+            if (Course.IsBooked != true && Course.IsCompleted != true)
+            {
+                var CourseNotification = context.AllNotifications
+                .Where(x => x.CourseBookingId == Course.Id || x.CourseBookingIdForLesson == Course.Id)
+                .ToList();
+
+                context.AllNotifications.RemoveRange(CourseNotification);
+
+                context.CourseBookings.Remove(Course);
+                context.SaveChanges();
+
+                if (Lastargs != null)
+                {
+                    LoadData(Lastargs);
+                }
+                else
+                {
+                    Load();
+                }
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Your Course Is Booked Now , You Can Not Edit Or Delete");
+            }
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    private void Complete(long? CourseBookingId)
+    {
+        try
+        {
+            var data = context.CourseBookings
+     .Include(x => x.LessonBookings)
+     .Include(x => x.StudentApplicationUsers)
+     .Where(x => x.Id == CourseBookingId)
+     .FirstOrDefault();
+
+            if (data != null)
+            {
+                bool lessons = data.LessonBookings.Any(x => x.IsBooked == true || x.IsSubmited == true || x.IsAdminApproved == true || x.IsTutorApproved == true);
+
+                if (lessons)
+                {
+                    JSRuntime.InvokeVoidAsync("alert", "Some Lessons Are Remaining To Be Attend");
+
+                }
+                else
+                {
+                    data.IsSubmited = false;
+                    data.IsAdminApproved = false;
+                    data.IsAdminRejected = false;
+                    data.IsTutorApproved = false;
+                    data.IsTutorRejected = false;
+                    data.IsBooked = false;
+
+                    data.IsCompleted = true;
+
+                    data.Status = "Completed";
+
+                    context.SaveChanges();
+                    if (Lastargs != null)
+                    {
+                        LoadData(Lastargs);
+                    }
+                    else
+                    {
+                        Load();
+                    }
+                }
+            }
+
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+    }
+
+
+
+    private void LessonBooking(long? CourseBookingId)
+    {
+       var  courseBooking = context.CourseBookings.Find(CourseBookingId);
+        if (courseBooking.IsBooked == true)
+        {
+            NavigationManager.NavigateTo($"/LessonBookingCreate/{CourseBookingId}");
+        }
+        else
+        {
+            JSRuntime.InvokeVoidAsync("alert", "Your Course Is Not Booked Yet");
+        }
+
+    }
+
+    private void CourseLedger(long? CourseBookingId)
+    {
+     var courseBooking = context.CourseBookings.Find(CourseBookingId);
+        if (courseBooking.IsBooked == true)
+        {
+            NavigationManager.NavigateTo($"/CourseLedger/{CourseBookingId}");
+        }
+        else
+        {
+            JSRuntime.InvokeVoidAsync("alert", "Your Course Is Not Booked Yet");
+        }
+    }
+
+}

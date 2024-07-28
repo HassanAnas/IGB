@@ -1,0 +1,216 @@
+﻿<ModalHeader>
+    <ModalTitle>Add Credits</ModalTitle>
+
+</ModalHeader>
+<ModalBody MaxHeight="70">
+
+    <div class="form-group">
+      <div class="row">
+            <div class="col-md-6">
+                <label>All Time Total Credits:</label>
+                <input type="number" @bind="AllTimeTotalCredit" class="form-control" disabled />
+
+                <label>All Time Consumed Credits:</label>
+                <input type="number" @bind="AllTimeConsumedCredit" class="form-control" disabled />
+
+                <label>All Time Future Lessons Estimated Consumed Credits:</label>
+                <input type="number" @bind="AllTimeEstimatedConsumedCredit" class="form-control" disabled />
+
+                <label>All Time Available Credits:</label>
+                <input type="number" @bind="AllTimeAvailableCredit" class="form-control" disabled />
+
+                <label>All Time Actual Credits:</label>
+                <input type="number" @bind="AllTimeActualCredit" class="form-control" disabled />
+
+            </div>
+            <div class="col-md-6">
+
+                <label>Course Total Credits:</label>
+                <input type="number" @bind="CourseTotalCredit" class="form-control" disabled />
+
+                <label>Course Consumed Credits:</label>
+                <input type="number" @bind="CourseConsumedCredit" class="form-control" disabled />
+
+                <label>Course Future Lessons Estimated Consumed Credits:</label>
+                <input type="number" @bind="CourseEstimatedConsumedCredit" class="form-control" disabled />
+
+                <label>Course Available Credits:</label>
+                <input type="number" @bind="CourseAvailableCredit" class="form-control" disabled />
+
+                <label>Course Actual Credits:</label>
+                <input type="number" @bind="CourseActualCredit" class="form-control" disabled />
+
+            </div>
+
+        </div>
+
+    </div> 
+
+    <EditForm Model="@StudentCredit" OnValidSubmit="Save">
+        <FluentValidationValidator />
+        <div class="form-group">
+
+            <label>Add Credits:</label>
+            <InputNumber @bind-Value="StudentCredit.Credit" class="form-control" />
+
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+
+</ModalBody>
+<ModalFooter>
+    <Blazorise.Button Color="Color.Success" Clicked="Close">Close</Blazorise.Button>
+</ModalFooter>
+
+@code {
+    [Inject] public IModalService ModalService { get; set; }
+    [Inject] public ApplicationDbContext context { get; set; }
+    [Inject] NavigationManager NavigationManager { get; set; }
+
+    [Parameter]
+    public long? CourseBookingId { get; set; }
+
+        private List<LessonBooking>? LessonBooking = new List<LessonBooking>();
+    private CourseBooking? CourseBooking = new CourseBooking();
+       private List<CourseBooking>? AllTimeCourseBooking = new List<CourseBooking>();
+
+    private ApplicationUser? ApplicationUser = new ApplicationUser();
+
+    //----------------------
+    private List<StudentCredit>? AllTimeStudentCredit = new List<StudentCredit>();
+    private List<StudentCredit>? CourseStudentCredit = new List<StudentCredit>();
+
+        private double? AllTimeTotalCredit = 0;
+    private double? AllTimeConsumedCredit = 0;
+    private double? AllTimeEstimatedConsumedCredit = 0;
+    private double? AllTimeAvailableCredit = 0;
+    private double? AllTimeActualCredit = 0;
+
+    private double? CourseTotalCredit = 0;
+    private double? CourseConsumedCredit = 0;
+    private double? CourseEstimatedConsumedCredit = 0;
+    private double? CourseAvailableCredit = 0;
+    private double? CourseActualCredit = 0;
+
+    private string? StudentId;
+
+    private StudentCredit? StudentCredit = new StudentCredit();
+
+    protected override async Task OnInitializedAsync()
+    {
+        StudentCredit = new StudentCredit();
+
+        CourseBooking = context.CourseBookings
+        .Include(x => x.StudentApplicationUsers)
+        .Include(x => x.TutorApplicationUsers)
+        .Include(x => x.AdminApplicationUsers)
+        .Include(x => x.Courses)
+        .Include(x => x.LessonBookings)
+        .Where(x => x.Id == Convert.ToInt64(CourseBookingId)).FirstOrDefault();
+
+        LessonBooking = context.LessonBookings
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.Courses)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.StudentApplicationUsers)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.AdminApplicationUsers)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.TutorApplicationUsers)
+        .Where(x => x.CourseBookingId == Convert.ToInt64(CourseBookingId))
+        .Skip(0).Take(10).ToList();
+
+        //----------------
+
+
+
+        CourseStudentCredit = context.StudentCredits
+        .Include(x => x.CourseBooking)
+        .Where(x => x.CourseBookingId == Convert.ToInt64(CourseBookingId)).ToList();
+
+        foreach (var item in CourseStudentCredit)
+        {
+            CourseTotalCredit += item.Credit;
+        }
+
+        foreach (var item in CourseBooking.LessonBookings)
+        {
+            CourseConsumedCredit += item.CreditCharged;
+        }
+
+        foreach (var item in CourseBooking.LessonBookings)
+        {
+            if (item.CreditCharged == 0)
+            {
+                CourseEstimatedConsumedCredit += item.EstimatedCreditCharged;
+            }
+        }
+
+        CourseAvailableCredit = CourseTotalCredit - (CourseConsumedCredit + CourseEstimatedConsumedCredit);
+        CourseActualCredit = CourseTotalCredit - CourseConsumedCredit;
+
+        //-----------------
+
+        StudentId = CourseBooking.StudentApplicationUsers.Id;
+
+        if (StudentId != null)
+        {
+            AllTimeCourseBooking = context.CourseBookings
+          .Include(x => x.StudentApplicationUsers)
+          .Include(x => x.TutorApplicationUsers)
+          .Include(x => x.AdminApplicationUsers)
+          .Include(x => x.Courses)
+          .Include(x => x.LessonBookings)
+          .Where(x => x.StudentApplicationUsers.Id == StudentId).ToList();
+
+            AllTimeStudentCredit = context.StudentCredits
+        .Include(x => x.CourseBooking)
+        .Where(x => x.StudentId == StudentId)
+        .ToList();
+
+            foreach (var item in AllTimeStudentCredit)
+            {
+                AllTimeTotalCredit += item.Credit;
+            }
+
+            foreach (var item in AllTimeCourseBooking)
+            {
+                foreach (var item1 in item.LessonBookings)
+                {
+                    AllTimeConsumedCredit += item1.CreditCharged;
+                }
+            }
+
+            foreach (var item in AllTimeCourseBooking)
+            {
+                foreach (var item1 in item.LessonBookings)
+                {
+                    if (item1.CreditCharged == 0)
+                    {
+                        AllTimeEstimatedConsumedCredit += item1.EstimatedCreditCharged;
+                    }
+                }
+            }
+        }
+
+        AllTimeAvailableCredit = AllTimeTotalCredit - (AllTimeConsumedCredit + AllTimeEstimatedConsumedCredit);
+        AllTimeActualCredit = AllTimeTotalCredit - AllTimeConsumedCredit;
+    }
+    private void Save()
+    {
+        var obj = new StudentCredit
+            {
+                Credit = StudentCredit.Credit,
+                StudentId = CourseBooking.StudentApplicationUsers.Id,
+                CourseBookingId = CourseBookingId
+            };
+        context.StudentCredits.Add(obj);
+        context.SaveChanges();
+        Close();
+    }
+
+    private void Close()
+    {
+        ModalService.Hide();
+    }
+}

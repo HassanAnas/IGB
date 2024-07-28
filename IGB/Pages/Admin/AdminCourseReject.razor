@@ -1,0 +1,61 @@
+﻿@page "/AdminCourseReject/{CourseBookingId?}/{NotificationId?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+
+@if (CourseBooking.IsAdminRejected == true)
+{
+    <h1>Course Is Rejected</h1>
+}
+else
+{
+    <h1>Course Is Not Rejected</h1>
+}
+
+@code {
+    [Parameter]
+    public string? CourseBookingId { get; set; }
+         [Parameter]
+    public string? NotificationId { get; set; }
+
+    private CourseBooking? CourseBooking = new CourseBooking();
+
+    private AllNotification AllNotification = new AllNotification();
+
+    protected override async Task OnInitializedAsync()
+    {
+        CourseBooking = context.CourseBookings
+         .Include(x => x.Courses)
+        .Include(x => x.StudentApplicationUsers).ThenInclude(x => x.Curriculums)
+        .Include(x => x.StudentApplicationUsers).ThenInclude(x => x.Grades)
+        .Where(x => x.Id == Convert.ToInt64(CourseBookingId))
+        .FirstOrDefault();
+
+        CourseBooking.Status = "Rejected By Admin";
+        CourseBooking.IsSubmited = false;
+        CourseBooking.IsAdminApproved = false;
+        CourseBooking.IsAdminRejected = true;
+        CourseBooking.IsTutorApproved = false;
+        CourseBooking.IsTutorRejected = false;        
+        CourseBooking.IsBooked = false;
+        context.SaveChanges();
+
+        AllNotification = context.AllNotifications
+        .Include(x=>x.CourseBookings).ThenInclude(x=>x.Courses)
+        .Where(x => x.Id == Convert.ToInt64(NotificationId)).FirstOrDefault();
+        AllNotification.IsReadByAdmin = true;
+        context.SaveChanges();
+
+
+            var obj = new AllNotification
+                {
+                    Notification = $"Your {AllNotification.CourseBookings.Courses.Name} Course Booking Request Is Rejected By Admin",
+                    ForStudent = true,
+                    ForStudentId = CourseBooking.StudentApplicationUsers.Id
+                };
+            context.AllNotifications.Add(obj);
+            context.SaveChanges();
+        
+    }
+}
+

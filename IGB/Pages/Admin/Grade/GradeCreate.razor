@@ -1,0 +1,149 @@
+﻿@page "/GradeCreate/{Id?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject IJSRuntime JSRuntime
+
+@attribute [Authorize(Roles = "Admin")]
+
+<h3>@(Id != null ? "Grade Edit" : "Grade Create")</h3>
+
+@if (Id != null)
+{
+    <EditForm Model="@Grade" OnValidSubmit="Edit" OnInvalidSubmit="@HandleInvalidSubmit">
+        <FluentValidationValidator />
+
+        <div class="form-group">
+            <label>Grade Name:</label>
+            <InputText @bind-Value="Grade.Name" class="form-control" />
+            <ValidationMessage For="@(() => Grade.Name)" />
+
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+}
+else
+{
+    <EditForm Model="@Grade" OnValidSubmit="Create" OnInvalidSubmit="@HandleInvalidSubmit">
+              <FluentValidationValidator/>
+
+        <div class="form-group">
+
+            <label>Grade Name:</label>
+            <InputText @bind-Value="Grade.Name" class="form-control" />
+            <ValidationMessage For="@(() => Grade.Name)" />
+
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </EditForm>
+}
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <button class="btn btn-secondary" @onclick="GoBackToIndex">Back</button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Id { get; set; }
+
+    private Grade? Grade { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id != null)
+        {
+            Grade = context.Grades.Find(Convert.ToInt64(Id));
+        }
+        else
+        {
+            Grade = new Grade();
+        }
+        Load();
+    }
+    private void Load()
+    {
+        try
+        {
+            if (Id != null)
+            {
+                Grade = context.Grades.Find(Convert.ToInt64(Id));
+            }
+            else
+            {
+                Grade = new Grade();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here, such as logging or displaying an error message
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+
+
+    private void Create()
+    {
+        var validator = new Grade.GradeValidator();
+        var validationResult = validator.Validate(Grade);
+
+        if (validationResult.IsValid)
+        {
+            try
+            {
+                var obj = new Grade
+                    {
+                        Name = Grade.Name,
+                    };
+                context.Grades.Add(obj);
+                context.SaveChanges();
+                Load();
+                NavigationManager.NavigateTo("/GradeIndex");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+    private void Edit()
+    {
+        var validator = new Grade.GradeValidator();
+        var validationResult = validator.Validate(Grade);
+
+        if (validationResult.IsValid)
+        {
+            try
+            {
+
+                context.SaveChanges();
+                Load();
+                NavigationManager.NavigateTo("/GradeIndex");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+    private void GoBackToIndex()
+    {
+        NavigationManager.NavigateTo("/GradeIndex");
+    }
+
+    internal async Task HandleInvalidSubmit()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToFirstError");
+        }
+        catch (Exception ex)
+        {
+            // Handle exception here
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+}

@@ -1,0 +1,501 @@
+﻿@page "/CourseLedger/{CourseBookingId?}"
+
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject UserService UserService
+@inject IJSRuntime JSRuntime
+@inject UserManager<IdentityUser> UserManager
+@inject IModalService ModalService
+@inject TimeConversionService TimeConversionService
+@inject IModalService ModalService
+
+
+@attribute [Authorize(Roles = "SuperAdmin,Student,Admin,Tutor,Guardian")]
+
+<h3>Course Ledger</h3>
+
+
+    @if (CourseBookingId != null)
+{
+    
+        @if (CourseBooking.StudentApplicationUsers != null)
+        {
+            <label>Student Name:</label>
+            <input type="text" @bind="CourseBooking.StudentApplicationUsers.FirstName" class="form-control" disabled />
+
+            <label>Student Tag:</label>
+            <input type="text" @bind="CourseBooking.StudentApplicationUsers.Tag" class="form-control" disabled />
+        }      
+
+    
+
+      @if (CourseBooking.Courses != null)
+        {
+            <label>Course Name:</label>
+            <input type="text" @bind="CourseBooking.Courses.Name" class="form-control" disabled />
+        }
+
+    @if (CourseBooking.TutorApplicationUsers != null)
+    {
+        <label>Tutor Name:</label>
+        <input type="text" @bind="CourseBooking.TutorApplicationUsers.FirstName" class="form-control" disabled />
+    }
+
+    @if (UserRole != "Tutor")
+    {
+        <div class="form-group">
+            <div class="row">
+                <div class="col-md-6">
+                    <label>All Time Total Credits:</label>
+                    <input type="number" @bind="AllTimeTotalCredit" class="form-control" disabled />
+
+                    <label>All Time Consumed Credits:</label>
+                    <input type="number" @bind="AllTimeConsumedCredit" class="form-control" disabled />
+
+                    <label>All Time Future Lessons Estimated Consumed Credits:</label>
+                    <input type="number" @bind="AllTimeEstimatedConsumedCredit" class="form-control" disabled />
+
+                    <label>All Time Available Credits:</label>
+                    <input type="number" @bind="AllTimeAvailableCredit" class="form-control" disabled />
+
+                    <label>All Time Actual Credits:</label>
+                    <input type="number" @bind="AllTimeActualCredit" class="form-control" disabled />
+
+                </div>
+                <div class="col-md-6">
+
+                    <label>Course Total Credits:</label>
+                    <input type="number" @bind="CourseTotalCredit" class="form-control" disabled />
+
+                    <label>Course Consumed Credits:</label>
+                    <input type="number" @bind="CourseConsumedCredit" class="form-control" disabled />
+
+                    <label>Course Future Lessons Estimated Consumed Credits:</label>
+                    <input type="number" @bind="CourseEstimatedConsumedCredit" class="form-control" disabled />
+
+                    <label>Course Available Credits:</label>
+                    <input type="number" @bind="CourseAvailableCredit" class="form-control" disabled />
+
+                    <label>Course Actual Credits:</label>
+                    <input type="number" @bind="CourseActualCredit" class="form-control" disabled />
+
+                </div>
+
+            </div>
+
+        </div>
+    }
+
+}
+
+<div class="row">
+    <div class="col-md-12" style="text-align: end">
+        <RadzenTextBox Placeholder="Search..." @bind-Value="@searchTerm" Change="@(args => FilterChanged())" />
+    </div>
+</div>
+
+<RadzenDataGrid Data="@LessonBooking"
+                Count="@count"
+                TItem="LessonBooking"
+                LoadData="@LoadData"
+                ShowPagingSummary="true"
+                AllowSorting="true"
+                AllowPaging="true" PageSize="10"
+                PageSizeOptions="new int[] { 10 , 25, 50 }"
+                AllowFiltering="true"
+                FilterMode="FilterMode.Simple"
+                FilterDelay="2000"
+                AllowColumnResize="true"
+                AllowColumnPicking="true"
+                ColumnWidth="150px">
+
+    <Columns>
+
+        <RadzenDataGridColumn TItem="LessonBooking" Title="Serial No.">
+            <Template Context="item">
+                @((LessonBooking.IndexOf(item) + 1) + ((currentPage - 1) * pageSize))
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="LessonName" Title="LessonName" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="TopicCovered" Title="Topic Covered" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="StartTime" Title="StartTime Time" Sortable="true">
+            <Template Context="data">
+                @{
+                    @if (data.StartTime != null)
+                    {
+                        if (UserRole == "Guardian")
+                        {
+                            DateTime StartTime = TimeConversionService.ConvertFromUtc(data.StartTime.Value, ApplicationUser.StudentApplicationUsers.TimeZone);
+                            <Span>@StartTime</Span>
+                        }
+                        else
+                        {
+                            DateTime StartTime = TimeConversionService.ConvertFromUtc(data.StartTime.Value, ApplicationUser.TimeZone);
+                            <Span>@StartTime</Span>
+                        }
+
+                    }
+
+                }
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="Duration" Title="Duration" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="EndTime" Title="EndTime Time" Sortable="true">
+            <Template Context="data">
+                @{
+                    @if (data.EndTime != null)
+                    {
+                        if (UserRole == "Guardian")
+                        {
+                            DateTime EndTime = TimeConversionService.ConvertFromUtc(data.EndTime.Value, ApplicationUser.StudentApplicationUsers.TimeZone);
+                            <Span>@EndTime</Span>
+                        }
+                        else
+                        {
+                            DateTime EndTime = TimeConversionService.ConvertFromUtc(data.EndTime.Value, ApplicationUser.TimeZone);
+                            <Span>@EndTime</Span>
+                        }
+
+                    }
+
+                }
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="CreditCharged" Title="Credit Charged" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="EstimatedCreditCharged" Title="Estimated Credit Charged" Sortable="true" />
+
+        <RadzenDataGridColumn TItem="LessonBooking" Property="Status" Title="Status" Sortable="true" />
+
+
+        @if (UserRole == "Tutor")
+        {
+            <RadzenDataGridColumn TItem="LessonBooking" Title="Class Link">
+                <Template Context="data">
+                    @if (data.Status != "Completed")
+                    {
+                        @if (!string.IsNullOrEmpty(data.ClassLink))
+                        {
+                            <button type="button" class="btn btn-primary" style="margin-top: 20px;" @onclick="() => ChangeClassLink(data.Id)">Edit Class Link</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-primary" style="margin-top: 20px; background-color: red; border-color: red;" @onclick="() => ChangeClassLink(data.Id)">Add Class Link</button>
+                        }
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+        }
+
+
+
+        @if (UserRole != "Guardian")
+        {
+            <RadzenDataGridColumn TItem="LessonBooking" Title="Action">
+                <Template Context="data">
+                    @if (data.Status != "Completed")
+                    {
+                        <button type="button" class="btn btn-primary" style="margin-top: 20px;" @onclick="() => Edit(data.Id)">Edit</button>
+                        @* <RadzenButton Text="Edit" Class="btn btn-primary" Click="@(args => Edit(data.Id))" /> *@
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+        }
+
+
+
+
+    </Columns>
+
+</RadzenDataGrid>
+
+
+
+@code {
+
+    [Parameter]
+    public string? CourseBookingId { get; set; }
+
+
+    int count;
+    string searchTerm = "";
+
+    int currentPage = 1;
+    int pageSize = 10;
+
+    private LoadDataArgs Lastargs = null;
+
+    private string? UserId;
+    private string? UserRole;
+    private string? GuardianStudentId;
+
+
+
+
+    private List<LessonBooking>? LessonBooking = new List<LessonBooking>();
+    private CourseBooking? CourseBooking = new CourseBooking();
+    private List<CourseBooking>? AllTimeCourseBooking = new List<CourseBooking>();
+    private ApplicationUser? ApplicationUser = new ApplicationUser();
+
+    //----------------------
+
+    private List<StudentCredit>? AllTimeStudentCredit = new List<StudentCredit>();
+    private List<StudentCredit>? CourseStudentCredit = new List<StudentCredit>();
+
+
+    private string? StudentId;
+
+    private double? AllTimeTotalCredit = 0;
+    private double? AllTimeConsumedCredit = 0;
+    private double? AllTimeEstimatedConsumedCredit = 0;
+    private double? AllTimeAvailableCredit = 0;
+    private double? AllTimeActualCredit = 0;
+
+    private double? CourseTotalCredit = 0;
+    private double? CourseConsumedCredit = 0;
+    private double? CourseEstimatedConsumedCredit = 0;
+    private double? CourseAvailableCredit = 0;
+    private double? CourseActualCredit = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+        GuardianStudentId = UserService.LoggedInGuardianStudentId;
+
+        ApplicationUser = context.ApplicationUsers
+        .Include(x => x.Curriculums)
+        .Include(x => x.Grades)
+        .Include(x => x.StudentApplicationUsers)
+        .Where(x => x.Id == UserId).FirstOrDefault();
+
+        Load();
+
+    }
+
+    private void Load()
+    {
+        CourseBooking = context.CourseBookings
+        .Include(x => x.StudentApplicationUsers).ThenInclude(x => x.StudentApplicationUsers)
+        .Include(x => x.TutorApplicationUsers)
+        .Include(x => x.AdminApplicationUsers)
+        .Include(x => x.Courses)
+        .Include(x => x.LessonBookings)
+        .Where(x => x.Id == Convert.ToInt64(CourseBookingId)).FirstOrDefault();
+
+        LessonBooking = context.LessonBookings
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.Courses)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.StudentApplicationUsers).ThenInclude(x => x.StudentApplicationUsers)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.AdminApplicationUsers)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.TutorApplicationUsers)
+        .Where(x => x.CourseBookingId == Convert.ToInt64(CourseBookingId))
+        .Skip(0).Take(10).ToList();
+
+        count = LessonBooking.Count();
+
+        //----------------
+
+
+
+        CourseStudentCredit = context.StudentCredits
+        .Include(x => x.CourseBooking).ThenInclude(x => x.StudentApplicationUsers).ThenInclude(x => x.StudentApplicationUsers)
+        .Where(x => x.CourseBookingId == Convert.ToInt64(CourseBookingId)).ToList();
+
+        foreach (var item in CourseStudentCredit)
+        {
+            CourseTotalCredit += item.Credit;
+        }
+
+        foreach (var item in CourseBooking.LessonBookings)
+        {
+            CourseConsumedCredit += item.CreditCharged;
+        }
+
+        foreach (var item in CourseBooking.LessonBookings)
+        {
+            if (item.CreditCharged == 0)
+            {
+                CourseEstimatedConsumedCredit += item.EstimatedCreditCharged;
+            }
+        }
+
+        CourseAvailableCredit = CourseTotalCredit - (CourseConsumedCredit + CourseEstimatedConsumedCredit);
+        CourseActualCredit = CourseTotalCredit - CourseConsumedCredit;
+
+        //-----------------
+
+
+        StudentId = CourseBooking.StudentApplicationUsers.Id;
+
+
+        if (StudentId != null)
+        {
+            AllTimeCourseBooking = context.CourseBookings
+          .Include(x => x.StudentApplicationUsers).ThenInclude(x => x.StudentApplicationUsers)
+          .Include(x => x.TutorApplicationUsers)
+          .Include(x => x.AdminApplicationUsers)
+          .Include(x => x.Courses)
+          .Include(x => x.LessonBookings)
+          .Where(x => x.StudentApplicationUsers.Id == StudentId).ToList();
+
+            AllTimeStudentCredit = context.StudentCredits
+        .Include(x => x.CourseBooking).ThenInclude(x => x.StudentApplicationUsers)
+        .Where(x => x.StudentId == StudentId)
+        .ToList();
+
+            foreach (var item in AllTimeStudentCredit)
+            {
+                AllTimeTotalCredit += item.Credit;
+            }
+
+            foreach (var item in AllTimeCourseBooking)
+            {
+                foreach (var item1 in item.LessonBookings)
+                {
+                    AllTimeConsumedCredit += item1.CreditCharged;
+                }
+            }
+
+            foreach (var item in AllTimeCourseBooking)
+            {
+                foreach (var item1 in item.LessonBookings)
+                {
+                    if (item1.CreditCharged == 0)
+                    {
+                        AllTimeEstimatedConsumedCredit += item1.EstimatedCreditCharged;
+                    }
+                }
+            }
+        }
+
+        AllTimeAvailableCredit = AllTimeTotalCredit - (AllTimeConsumedCredit + AllTimeEstimatedConsumedCredit);
+        AllTimeActualCredit = AllTimeTotalCredit - AllTimeConsumedCredit;
+    }
+
+    void LoadData(LoadDataArgs args)
+    {
+           Lastargs = args;
+
+        var query = context.LessonBookings
+           .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.Courses)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.StudentApplicationUsers).ThenInclude(x => x.StudentApplicationUsers)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.AdminApplicationUsers)
+        .Include(x => x.CourseBookings)
+        .ThenInclude(x => x.TutorApplicationUsers)
+        .Where(x => x.CourseBookingId == Convert.ToInt64(CourseBookingId))
+        .AsQueryable();
+
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+
+            query = query.Where(p => p.AdminRemarks.Contains(searchTerm));
+        }
+
+        if (!string.IsNullOrEmpty(args.Filter))
+        {
+
+            query = query.Where(args.Filter);
+        }
+
+        if (!string.IsNullOrEmpty(args.OrderBy))
+        {
+            query = query.OrderBy(args.OrderBy);
+        }
+
+        count = query.Count();
+
+        int skip = args.Skip ?? 0;
+        int top = args.Top ?? 10;
+
+                  currentPage = (skip / top) + 1;
+        pageSize = top;
+
+        LessonBooking = query.Skip(skip).Take(top).ToList();
+    }
+
+
+    void FilterChanged()
+    {
+        LoadData(new LoadDataArgs());
+    }
+
+
+    private void Edit(long id)
+    {
+        if (id != null)
+        {
+            var data = context.LessonBookings.Find(id);
+            if (data.IsBooked != true)
+            {
+                ModalService.Show<LessonBookingEditModal>(parameters => parameters.Add(x => x.LessonBookingId, id), new ModalInstanceOptions() { UseModalStructure = false });
+
+            }
+            else
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Lesson Is Booked , You Can Not Edit It.");
+            }
+       }
+        else
+        {
+            // Handle the case where doc is null or does not have a value
+        }
+    }
+    private void ChangeClassLink(long id)
+    {
+        if (id != null)
+        {
+            ModalService.Show<ChangeClassLinkModal>(parameters => parameters.Add(x => x.LessonBookingId, id), new ModalInstanceOptions() { UseModalStructure = false });
+            
+            if (Lastargs != null)
+            {
+                LoadData(Lastargs);
+            }
+            else
+            {
+                Load();
+            }
+        }
+        else
+        {
+            // Handle the case where doc is null or does not have a value
+        }
+
+    }
+
+    private void Delete(LessonBooking data)
+    {
+        try
+        {
+            context.LessonBookings.Remove(data);
+            context.SaveChanges();
+
+            if (Lastargs != null)
+            {
+                LoadData(Lastargs);
+            }
+            else
+            {
+                Load();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception, e.g., show error message to the user
+            Console.WriteLine($"Error deleting main section: {ex.Message}");
+        }
+    }
+
+}

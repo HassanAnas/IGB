@@ -1,0 +1,38 @@
+﻿@page "/AdminDashboard"
+
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@inject ApplicationDbContext context
+@inject IModalService ModalService
+@inject IJSRuntime JSRuntime
+
+@attribute [Authorize(Roles = "Admin")]
+@if (ApplicationUser.IsActive == true)
+{
+<h3>Admin Dashboard</h3>
+}
+else
+{
+
+    JSRuntime.InvokeVoidAsync("alert", "Your Account Is Not Active");
+
+
+}
+
+@code {
+    private string? UserId;
+    private string? UserRole;
+
+    private ApplicationUser? ApplicationUser = new ApplicationUser();
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        UserId = UserService.LoggedInUserId;
+        UserRole = UserService.LoggedInUserRole;
+
+        ApplicationUser = context.ApplicationUsers.Where(x => x.Id == UserId).FirstOrDefault();
+
+    }
+
+}
