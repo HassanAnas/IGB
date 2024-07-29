@@ -1,17 +1,11 @@
 ﻿using IGB.Data;
 using IGB.DTOs;
 using IGB.Models;
-using IGB.Models.Admin;
 using IGB.Models.Feedback;
-using IGB.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System.Linq;
 using System.Linq.Dynamic.Core;
 
 namespace IGB.ApiControllers
@@ -337,162 +331,362 @@ namespace IGB.ApiControllers
         }
 
 
-        //[HttpPost("TutorFeedackCreateUpdate")]
-        //[Authorize(Policy = "ApiUser")]
-        //public IActionResult TutorFeedackCreateUpdate([FromBody] TutorFeedbackDto TutorFeedbackDto)
-        //{
-        //    if (TutorFeedbackDto == null)
-        //    {
-        //        var Response = new
-        //        {
-        //            Response = "0",
-        //            Error = "Invalid request"
-        //        };
+        [HttpPost("TutorFeedackCreateUpdate")]
+        [Authorize(Policy = "ApiUser")]
+        public IActionResult TutorFeedackCreateUpdate([FromBody] TutorFeedbackDto TutorFeedbackDto)
+        {
+            if (TutorFeedbackDto == null)
+            {
+                var Response = new
+                {
+                    Response = "0",
+                    Error = "Invalid request"
+                };
 
-        //        string jsonResponse = JsonConvert.SerializeObject(Response);
-        //        return BadRequest(jsonResponse);
-        //    }
-        //    else
-        //    {
-        //        try
-        //        {
-        //            if (TutorFeedbackDto.Id == null)
-        //            {
-        //                TutorFeedback? TutorFeedback = new TutorFeedback();
+                string jsonResponse = JsonConvert.SerializeObject(Response);
+                return BadRequest(jsonResponse);
+            }
+            else
+            {
+                try
+                {
+                    if (TutorFeedbackDto.Id == null)
+                    {
 
-        //                if (TutorFeedbackDto.PreviousHomeWorkDone == true)
-        //                {
-        //                    TutorFeedback.PreviousHomeWorkDoneScore = 1;
-        //                }
+                        TutorFeedback? TutorFeedback = new TutorFeedback();
 
-        //                if (TutorFeedbackDto.GradePrediction == "A+")
-        //                {
-        //                    TutorFeedback.GradePredictionScore = 1;
-        //                }
-        //                else if (TutorFeedbackDto.GradePrediction == "A")
-        //                {
-        //                    TutorFeedback.GradePredictionScore = 0.8;
-        //                }
-        //                else if (TutorFeedbackDto.GradePrediction == "B")
-        //                {
-        //                    TutorFeedback.GradePredictionScore = 0.6;
-        //                }
-        //                else if (TutorFeedbackDto.GradePrediction == "C")
-        //                {
-        //                    TutorFeedback.GradePredictionScore = 0.4;
-        //                }
-        //                else if (TutorFeedbackDto.GradePrediction == "D")
-        //                {
-        //                    TutorFeedback.GradePredictionScore = 0.2;
-        //                }
-        //                else if (TutorFeedbackDto.GradePrediction == "E")
-        //                {
-        //                    TutorFeedback.GradePredictionScore = 0.1;
-        //                }
-        //                else
-        //                {
-        //                    TutorFeedback.GradePredictionScore = 0;
-        //                }
+                        LessonBooking LessonBooking = new LessonBooking();
 
-        //                TutorFeedback.Percentage = TutorFeedbackDto.ObtainedScore * 100 / TutorFeedbackDto.TotalScore;
-        //                TutorFeedback.PercentageScore = TutorFeedback.Percentage / 100;
+                        LessonBooking = context.LessonBookings
+        .Include(x => x.CourseBookings).ThenInclude(x => x.Courses)
+        .Include(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers).ThenInclude(x => x.Curriculums)
+        .Include(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers).ThenInclude(x => x.Grades)
+        .Include(x => x.CourseBookings).ThenInclude(x => x.AdminApplicationUsers)
+        .Include(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+        .Where(x => x.Id == TutorFeedbackDto.LessonBookingId)
+        .FirstOrDefault();
 
-        //                TutorFeedback.FinalScore = TutorFeedback.PreviousHomeWorkDoneScore + TutorFeedback.TopicUnderstandingLevel + TutorFeedback.MentalSkills + TutorFeedback.GradePredictionScore + TutorFeedback.PercentageScore;
+                        var Grades = context.TutorFeedbacks
+              .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers)
+              .Where(x => x.LessonBookings.CourseBookings.StudentApplicationUsers.Id == LessonBooking.CourseBookings.StudentApplicationUsers.Id)
+              .Select(x => x.GradePredictionScore)
+              .ToList();
 
-        //                if (TutorFeedbackDto.NextHomework == "Not Given")
-        //                {
-        //                    TutorFeedback.NextHomeworkFile = null;
-        //                }
-
-        //                var obj = new TutorFeedback
-        //                {
-        //                    LessonBookingId = TutorFeedbackDto.LessonBookingId,
-        //                    PreviousHomeWorkDone = TutorFeedbackDto.PreviousHomeWorkDone,
-        //                    PreviousHomeWorkDoneScore = TutorFeedback.PreviousHomeWorkDoneScore,
-        //                    PreviousHomeWorkDiscussed = TutorFeedbackDto.PreviousHomeWorkDiscussed,
-        //                    TopicCoveredToday = TutorFeedbackDto.TopicCoveredToday,
-        //                    TopicUnderstandingLevel = TutorFeedbackDto.TopicUnderstandingLevel,
-        //                    GradePrediction = TutorFeedback.GradePrediction,
-        //                    GradePredictionScore = TutorFeedback.GradePredictionScore,
-        //                    AverageGradePrediction = TutorFeedback.AverageGradePrediction,
-        //                    MentalSkills = TutorFeedback.MentalSkills,
-        //                    TestName = TutorFeedback.TestName,
-        //                    ObtainedScore = TutorFeedback.ObtainedScore,
-        //                    TotalScore = TutorFeedback.TotalScore,
-        //                    Percentage = TutorFeedback.Percentage,
-        //                    PercentageScore = TutorFeedback.PercentageScore,
-        //                    TestFile = TutorFeedback.TestFile,
-        //                    NextHomeworkFile = TutorFeedback.NextHomeworkFile,
-        //                    Remarks = TutorFeedback.Remarks,
-        //                    Announcement = TutorFeedback.Announcement,
-        //                    IsPending = true,
-        //                    FinalScore = TutorFeedback.FinalScore
-        //                };
-
-        //                context.TutorFeedbacks.Add(obj);
-
-        //                var lesson = context.LessonBookings.Where(x => x.Id == Convert.ToInt64(LessonBookingId)).FirstOrDefault();
-        //                lesson.StudentScore = TutorFeedback.FinalScore;
-
-        //                context.SaveChanges();
-
-        //                var Response = new
-        //                {
-        //                    Response = "1",
-        //                    Message = "Tutor Feedback Created"
-        //                };
-
-        //                string jsonResponse = JsonConvert.SerializeObject(Response);
-        //                return Ok(jsonResponse);
-        //            }
-        //            else
-        //            {
-
-        //                StudentFeedback? StudentFeedback = new StudentFeedback();
-        //                StudentFeedback = context.StudentFeedbacks.Where(x => x.Id == TutorFeedbackDto.Id).FirstOrDefault();
-
-        //                if (StudentFeedback.IsPending == true && StudentFeedback.IsApproved == false)
-        //                {
+                        double? Grade = Grades.Sum();
+                        double? PredictionGrade = Grade / Grades.Count;
 
 
-        //                    context.SaveChanges();
+                        if (PredictionGrade < 0.1)
+                        {
+                            TutorFeedback.AverageGradePrediction = "F";
+                        }
+                        else if (PredictionGrade >= 0.1 && PredictionGrade < 0.2)
+                        {
+                            TutorFeedback.AverageGradePrediction = "E";
+                        }
+                        else if (PredictionGrade >= 0.2 && PredictionGrade < 0.3)
+                        {
+                            TutorFeedback.AverageGradePrediction = "D";
+                        }
+                        else if (PredictionGrade >= 0.3 && PredictionGrade < 0.5)
+                        {
+                            TutorFeedback.AverageGradePrediction = "C";
+                        }
+                        else if (PredictionGrade >= 0.5 && PredictionGrade < 0.7)
+                        {
+                            TutorFeedback.AverageGradePrediction = "B";
+                        }
+                        else if (PredictionGrade >= 0.7 && PredictionGrade < 0.9)
+                        {
+                            TutorFeedback.AverageGradePrediction = "A";
+                        }
+                        else if (PredictionGrade >= 0.9)
+                        {
+                            TutorFeedback.AverageGradePrediction = "A+";
+                        }
+                        else
+                        {
+                            TutorFeedback.AverageGradePrediction = "No Records Found";
+                        }
 
-        //                    var Response = new
-        //                    {
-        //                        Response = "1",
-        //                        Message = "Tutor Feedback Updated"
-        //                    };
 
-        //                    string jsonResponse = JsonConvert.SerializeObject(Response);
-        //                    return Ok(jsonResponse);
-        //                }
-        //                else
-        //                {
-        //                    var Response = new
-        //                    {
-        //                        Response = "0",
-        //                        Error = "Feedback Cann't Be Updated After Approved"
-        //                    };
+                        if (TutorFeedbackDto.PreviousHomeWorkDone == true)
+                        {
+                            TutorFeedback.PreviousHomeWorkDoneScore = 0.5;
+                        }
 
-        //                    string jsonResponse = JsonConvert.SerializeObject(Response);
-        //                    return BadRequest(jsonResponse);
-        //                }
-        //            }
-        //        }
+                        if (TutorFeedbackDto.GradePrediction == "A+")
+                        {
+                            TutorFeedback.GradePredictionScore = 0.7;
+                        }
+                        else if (TutorFeedbackDto.GradePrediction == "A")
+                        {
+                            TutorFeedback.GradePredictionScore = 0.6;
+                        }
+                        else if (TutorFeedbackDto.GradePrediction == "B")
+                        {
+                            TutorFeedback.GradePredictionScore = 0.5;
+                        }
+                        else if (TutorFeedbackDto.GradePrediction == "C")
+                        {
+                            TutorFeedback.GradePredictionScore = 0.4;
+                        }
+                        else if (TutorFeedbackDto.GradePrediction == "D")
+                        {
+                            TutorFeedback.GradePredictionScore = 0.2;
+                        }
+                        else if (TutorFeedbackDto.GradePrediction == "E")
+                        {
+                            TutorFeedback.GradePredictionScore = 0.1;
+                        }
+                        else
+                        {
+                            TutorFeedback.GradePredictionScore = 0;
+                        }
 
-        //        catch (Exception ex)
-        //        {
-        //            var Response = new
-        //            {
-        //                Response = "0",
-        //                Error = "Something Went Wrong"
-        //            };
+                        TutorFeedback.Percentage = TutorFeedbackDto.ObtainedScore * 100 / TutorFeedbackDto.TotalScore;
+                        TutorFeedback.PercentageScore = TutorFeedback.Percentage / 125;
 
-        //            string jsonResponse = JsonConvert.SerializeObject(Response);
-        //            return BadRequest(jsonResponse);
-        //        }
-        //    }
-        //}
+                        TutorFeedback.FinalScore = TutorFeedback.PreviousHomeWorkDoneScore + TutorFeedback.TopicUnderstandingLevel + TutorFeedback.MentalSkills + TutorFeedback.GradePredictionScore + TutorFeedback.PercentageScore;
+
+                        if (TutorFeedbackDto.NextHomework == "Not Given")
+                        {
+                            TutorFeedback.NextHomeworkFile = null;
+                        }
+
+                        var obj = new TutorFeedback
+                        {
+                            LessonBookingId = TutorFeedbackDto.LessonBookingId,
+                            PreviousHomeWorkDone = TutorFeedbackDto.PreviousHomeWorkDone,
+                            PreviousHomeWorkDoneScore = TutorFeedback.PreviousHomeWorkDoneScore,
+                            PreviousHomeWorkDiscussed = TutorFeedbackDto.PreviousHomeWorkDiscussed,
+                            TopicCoveredToday = TutorFeedbackDto.TopicCoveredToday,
+                            TopicUnderstandingLevel = TutorFeedbackDto.TopicUnderstandingLevel,
+                            GradePrediction = TutorFeedbackDto.GradePrediction,
+                            GradePredictionScore = TutorFeedback.GradePredictionScore,
+                            AverageGradePrediction = TutorFeedback.AverageGradePrediction,
+                            MentalSkills = TutorFeedbackDto.MentalSkills,
+                            TestName = TutorFeedbackDto.TestName,
+                            ObtainedScore = TutorFeedbackDto.ObtainedScore,
+                            TotalScore = TutorFeedbackDto.TotalScore,
+                            Percentage = TutorFeedback.Percentage,
+                            PercentageScore = TutorFeedback.PercentageScore,
+                            TestFile = TutorFeedbackDto.TestFile,
+                            NextHomework = TutorFeedbackDto.NextHomework,
+                            NextHomeworkFile = TutorFeedbackDto.NextHomeworkFile,
+                            Remarks = TutorFeedbackDto.Remarks,
+                            Announcement = TutorFeedbackDto.Announcement,
+                            IsPending = true,
+                            Status = "Pending",
+                            FinalScore = TutorFeedback.FinalScore
+                        };
+
+                        context.TutorFeedbacks.Add(obj);
+
+                        var lesson = context.LessonBookings.Where(x => x.Id == Convert.ToInt64(TutorFeedbackDto.LessonBookingId)).FirstOrDefault();
+                        lesson.StudentScore = TutorFeedback.FinalScore;
+
+                        context.SaveChanges();
+
+                        var Response = new
+                        {
+                            Response = "1",
+                            Message = "Tutor Feedback Created"
+                        };
+
+                        string jsonResponse = JsonConvert.SerializeObject(Response);
+                        return Ok(jsonResponse);
+                    }
+                    else
+                    {
+
+                        TutorFeedback? TutorFeedback = new TutorFeedback();
+                        TutorFeedback = context.TutorFeedbacks.Where(x => x.Id == TutorFeedbackDto.Id).FirstOrDefault();
+
+                        if (TutorFeedback != null)
+                        {
+                            if (TutorFeedback.IsPending == true && TutorFeedback.IsApproved == false)
+                            {
+                                LessonBooking LessonBooking = new LessonBooking();
+
+                                LessonBooking = context.LessonBookings
+                .Include(x => x.CourseBookings).ThenInclude(x => x.Courses)
+                .Include(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers).ThenInclude(x => x.Curriculums)
+                .Include(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers).ThenInclude(x => x.Grades)
+                .Include(x => x.CourseBookings).ThenInclude(x => x.AdminApplicationUsers)
+                .Include(x => x.CourseBookings).ThenInclude(x => x.TutorApplicationUsers)
+                .Where(x => x.Id == TutorFeedbackDto.LessonBookingId)
+                .FirstOrDefault();
+
+                                var Grades = context.TutorFeedbacks
+                      .Include(x => x.LessonBookings).ThenInclude(x => x.CourseBookings).ThenInclude(x => x.StudentApplicationUsers)
+                      .Where(x => x.LessonBookings.CourseBookings.StudentApplicationUsers.Id == LessonBooking.CourseBookings.StudentApplicationUsers.Id)
+                      .Select(x => x.GradePredictionScore)
+                      .ToList();
+
+                                double? Grade = Grades.Sum();
+                                double? PredictionGrade = Grade / Grades.Count;
+
+                                if (PredictionGrade < 0.1)
+                                {
+                                    TutorFeedback.AverageGradePrediction = "F";
+                                }
+                                else if (PredictionGrade >= 0.1 && PredictionGrade < 0.2)
+                                {
+                                    TutorFeedback.AverageGradePrediction = "E";
+                                }
+                                else if (PredictionGrade >= 0.2 && PredictionGrade < 0.3)
+                                {
+                                    TutorFeedback.AverageGradePrediction = "D";
+                                }
+                                else if (PredictionGrade >= 0.3 && PredictionGrade < 0.5)
+                                {
+                                    TutorFeedback.AverageGradePrediction = "C";
+                                }
+                                else if (PredictionGrade >= 0.5 && PredictionGrade < 0.7)
+                                {
+                                    TutorFeedback.AverageGradePrediction = "B";
+                                }
+                                else if (PredictionGrade >= 0.7 && PredictionGrade < 0.9)
+                                {
+                                    TutorFeedback.AverageGradePrediction = "A";
+                                }
+                                else if (PredictionGrade >= 0.9)
+                                {
+                                    TutorFeedback.AverageGradePrediction = "A+";
+                                }
+                                else
+                                {
+                                    TutorFeedback.AverageGradePrediction = "No Records Found";
+                                }
+
+
+                                if (TutorFeedbackDto.PreviousHomeWorkDone == true)
+                                {
+                                    TutorFeedback.PreviousHomeWorkDoneScore = 0.5;
+                                }
+
+                                if (TutorFeedbackDto.GradePrediction == "A+")
+                                {
+                                    TutorFeedback.GradePredictionScore = 0.7;
+                                }
+                                else if (TutorFeedbackDto.GradePrediction == "A")
+                                {
+                                    TutorFeedback.GradePredictionScore = 0.6;
+                                }
+                                else if (TutorFeedbackDto.GradePrediction == "B")
+                                {
+                                    TutorFeedback.GradePredictionScore = 0.5;
+                                }
+                                else if (TutorFeedbackDto.GradePrediction == "C")
+                                {
+                                    TutorFeedback.GradePredictionScore = 0.4;
+                                }
+                                else if (TutorFeedbackDto.GradePrediction == "D")
+                                {
+                                    TutorFeedback.GradePredictionScore = 0.2;
+                                }
+                                else if (TutorFeedbackDto.GradePrediction == "E")
+                                {
+                                    TutorFeedback.GradePredictionScore = 0.1;
+                                }
+                                else
+                                {
+                                    TutorFeedback.GradePredictionScore = 0;
+                                }
+
+                                TutorFeedback.Percentage = TutorFeedbackDto.ObtainedScore * 100 / TutorFeedbackDto.TotalScore;
+                                TutorFeedback.PercentageScore = TutorFeedback.Percentage / 125;
+
+                                TutorFeedback.FinalScore = TutorFeedback.PreviousHomeWorkDoneScore + TutorFeedback.TopicUnderstandingLevel + TutorFeedback.MentalSkills + TutorFeedback.GradePredictionScore + TutorFeedback.PercentageScore;
+
+                                if (TutorFeedbackDto.NextHomework == "Not Given")
+                                {
+                                    TutorFeedback.NextHomeworkFile = null;
+                                }
+
+
+                                TutorFeedback.LessonBookingId = TutorFeedbackDto.LessonBookingId;
+                                TutorFeedback.PreviousHomeWorkDone = TutorFeedbackDto.PreviousHomeWorkDone;
+                                TutorFeedback.PreviousHomeWorkDoneScore = TutorFeedback.PreviousHomeWorkDoneScore;
+                                TutorFeedback.PreviousHomeWorkDiscussed = TutorFeedbackDto.PreviousHomeWorkDiscussed;
+                                TutorFeedback.TopicCoveredToday = TutorFeedbackDto.TopicCoveredToday;
+                                TutorFeedback.TopicUnderstandingLevel = TutorFeedbackDto.TopicUnderstandingLevel;
+                                TutorFeedback.GradePrediction = TutorFeedbackDto.GradePrediction;
+                                TutorFeedback.GradePredictionScore = TutorFeedback.GradePredictionScore;
+                                TutorFeedback.AverageGradePrediction = TutorFeedback.AverageGradePrediction;
+                                TutorFeedback.MentalSkills = TutorFeedbackDto.MentalSkills;
+                                TutorFeedback.TestName = TutorFeedbackDto.TestName;
+                                TutorFeedback.ObtainedScore = TutorFeedbackDto.ObtainedScore;
+                                TutorFeedback.TotalScore = TutorFeedbackDto.TotalScore;
+                                TutorFeedback.Percentage = TutorFeedback.Percentage;
+                                TutorFeedback.PercentageScore = TutorFeedback.PercentageScore;
+                                TutorFeedback.TestFile = TutorFeedbackDto.TestFile;
+                                TutorFeedback.NextHomework = TutorFeedbackDto.NextHomework;
+                                TutorFeedback.NextHomeworkFile = TutorFeedbackDto.NextHomeworkFile;
+                                TutorFeedback.Remarks = TutorFeedbackDto.Remarks;
+                                TutorFeedback.Announcement = TutorFeedbackDto.Announcement;
+                                TutorFeedback.IsPending = true;
+                                TutorFeedback.Status = "Pending";
+                                TutorFeedback.FinalScore = TutorFeedback.FinalScore;
+
+
+
+                                var lesson = context.LessonBookings.Where(x => x.Id == Convert.ToInt64(TutorFeedbackDto.LessonBookingId)).FirstOrDefault();
+                                lesson.StudentScore = TutorFeedback.FinalScore;
+
+                                context.SaveChanges();
+
+                                context.SaveChanges();
+
+                                var Response = new
+                                {
+                                    Response = "1",
+                                    Message = "Tutor Feedback Updated"
+                                };
+
+                                string jsonResponse = JsonConvert.SerializeObject(Response);
+                                return Ok(jsonResponse);
+                            }
+                            else
+                            {
+                                var Response = new
+                                {
+                                    Response = "0",
+                                    Error = "Feedback Cann't Be Updated After Approved"
+                                };
+
+                                string jsonResponse = JsonConvert.SerializeObject(Response);
+                                return BadRequest(jsonResponse);
+                            }
+                        }
+                        else
+                        {
+                            var Response = new
+                            {
+                                Response = "0",
+                                Error = "Credential Error"
+                            };
+
+                            string jsonResponse = JsonConvert.SerializeObject(Response);
+                            return BadRequest(jsonResponse);
+                        }
+                    }
+                }
+
+                catch (Exception ex)
+                {
+                    var Response = new
+                    {
+                        Response = "0",
+                        Error = "Something Went Wrong"
+                    };
+
+                    string jsonResponse = JsonConvert.SerializeObject(Response);
+                    return BadRequest(jsonResponse);
+                }
+            }
+        }
 
 
         [HttpGet("StudentFeedbacks/{studentId}")]

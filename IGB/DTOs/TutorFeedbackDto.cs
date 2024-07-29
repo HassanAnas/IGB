@@ -14,13 +14,11 @@ namespace IGB.DTOs
         public string? TopicCoveredToday { get; set; }
         public double? TopicUnderstandingLevel { get; set; } = 0;
         public string? GradePrediction { get; set; }
-        public string? AverageGradePrediction { get; set; }
         public double? MentalSkills { get; set; } = 0;
 
         public string? TestName { get; set; }
         public double? TotalScore { get; set; }
         public double? ObtainedScore { get; set; }
-        public double? Percentage { get; set; }
 
         public byte[]? TestFile { get; set; }
         public byte[]? NextHomeworkFile { get; set; }

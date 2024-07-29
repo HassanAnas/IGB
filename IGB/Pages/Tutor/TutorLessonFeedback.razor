@@ -154,14 +154,14 @@
             <label>Homework</label>
             <InputSelect @bind-Value="TutorFeedback.NextHomework" class="form-control">
                 <option value="" selected disabled>Select An Option</option>
-                <option value="">Given</option>
+                <option value="Given">Given</option>
                 <option value="Not Given">Not Given</option>
             </InputSelect>
 
             @if (TutorFeedback.NextHomework == "Given")
             {
                 <label>Next Homeworrk File:</label>
-                <InputFile OnChange=" NextHomeworkFileChange" class="form-control" />
+                <InputFile OnChange="NextHomeworkFileChange" class="form-control" />
 
                 @if (TutorFeedback.NextHomeworkFile != null)
                 {
@@ -274,20 +274,20 @@
         {       
             if (TutorFeedback.PreviousHomeWorkDone == true)
             {
-                TutorFeedback.PreviousHomeWorkDoneScore = 1;
+                TutorFeedback.PreviousHomeWorkDoneScore = 0.5;
             }
 
             if (TutorFeedback.GradePrediction == "A+")
             {
-                TutorFeedback.GradePredictionScore = 1;
+                TutorFeedback.GradePredictionScore = 0.7;
             }
             else if (TutorFeedback.GradePrediction == "A")
             {
-                TutorFeedback.GradePredictionScore = 0.8;
+                TutorFeedback.GradePredictionScore = 0.6;
             }
             else if (TutorFeedback.GradePrediction == "B")
             {
-                TutorFeedback.GradePredictionScore = 0.6;
+                TutorFeedback.GradePredictionScore = 0.5;
             }
             else if (TutorFeedback.GradePrediction == "C")
             {
@@ -306,11 +306,11 @@
                 TutorFeedback.GradePredictionScore = 0;
             }
 
-            TutorFeedback.PercentageScore = TutorFeedback.Percentage / 100;
+            TutorFeedback.PercentageScore = TutorFeedback.Percentage / 125;
 
             TutorFeedback.FinalScore = TutorFeedback.PreviousHomeWorkDoneScore + TutorFeedback.TopicUnderstandingLevel + TutorFeedback.MentalSkills + TutorFeedback.GradePredictionScore + TutorFeedback.PercentageScore;
 
-            @if (TutorFeedback.NextHomework == "Not Given")
+            if (TutorFeedback.NextHomework == "Not Given")
             {
                 TutorFeedback.NextHomeworkFile = null;
             }
@@ -332,6 +332,7 @@
                     Percentage = TutorFeedback.Percentage,
                     PercentageScore = TutorFeedback.PercentageScore,
                     TestFile = TutorFeedback.TestFile,
+                    NextHomework = TutorFeedback.NextHomework,
                     NextHomeworkFile = TutorFeedback.NextHomeworkFile,
                     Remarks = TutorFeedback.Remarks,
                     Announcement = TutorFeedback.Announcement,
